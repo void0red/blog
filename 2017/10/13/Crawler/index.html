@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.void0red.top","root":"/","scheme":"Pisces","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="一次爬虫的记录与分享  0x00准备安装selenium库，使用urllib库，re库 0x01实现selenium模拟登录">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Crawler">
+<meta property="og:url" content="https://blog.void0red.top/2017/10/13/Crawler/index.html">
+<meta property="og:site_name" content="void0red&#39;s blog">
+<meta property="og:description" content="一次爬虫的记录与分享  0x00准备安装selenium库，使用urllib库，re库 0x01实现selenium模拟登录">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.void0red.top/images/crawler0.jpg">
+<meta property="og:image" content="https://blog.void0red.top/images/crawler1.png">
+<meta property="og:image" content="https://blog.void0red.top/images/crawler2.png">
+<meta property="article:published_time" content="2017-10-12T16:00:00.000Z">
+<meta property="article:modified_time" content="2020-02-11T02:14:48.654Z">
+<meta property="article:author" content="void0red">
+<meta property="article:tag" content="others">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://blog.void0red.top/images/crawler0.jpg">
+
+<link rel="canonical" href="https://blog.void0red.top/2017/10/13/Crawler/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>Crawler | void0red's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">void0red's blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="off"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="en">
+    <link itemprop="mainEntityOfPage" href="https://blog.void0red.top/2017/10/13/Crawler/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="void0red">
+      <meta itemprop="description" content="stupid">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="void0red's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Crawler
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2017-10-13 00:00:00" itemprop="dateCreated datePublished" datetime="2017-10-13T00:00:00+08:00">2017-10-13</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-02-11 10:14:48" itemprop="dateModified" datetime="2020-02-11T10:14:48+08:00">2020-02-11</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote>
+<p>一次爬虫的记录与分享</p>
+</blockquote>
+<h2 id="0x00准备"><a href="#0x00准备" class="headerlink" title="0x00准备"></a>0x00准备</h2><p>安装selenium库，使用urllib库，re库</p>
+<h2 id="0x01实现"><a href="#0x01实现" class="headerlink" title="0x01实现"></a>0x01实现</h2><h3 id="selenium模拟登录"><a href="#selenium模拟登录" class="headerlink" title="selenium模拟登录"></a>selenium模拟登录</h3><a id="more"></a>
+<p>emmm,起因是为了实现自动在qzone发送说说，然后到github上去翻了翻，发现轮子都已经失效了（<del>大概没人喜欢做这么无聊的事吧</del><br>登录qzone: i.qq.com，查看到qzone的登录是利用js实现的<br><img src="/images/crawler0.jpg" alt=""></p>
+<p>并没有想去分析qzone的js算法，决定使用selenium模拟登录qzone，不难操作，然后取得当前页面，也就是登录完成的页面的cookie，（注意！用sleep来等待大量数据加载完成，许多操作不能达到预计效果可能是因为网络不佳造成的）</p>
+<p>除了cookie，还有当前页面的源代码也要保存下来（笑</p>
+<h3 id="分析说说发送过程"><a href="#分析说说发送过程" class="headerlink" title="分析说说发送过程"></a>分析说说发送过程</h3><p>在首页随便发送一条说说，截获一条post请求</p>
+<p><img src="/images/crawler1.png" alt=""></p>
+<p>分析结构，发现请求地址很长</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https:&#x2F;&#x2F;user.qzone.qq.com&#x2F;proxy&#x2F;domain&#x2F;taotao.qzone.qq.com&#x2F;cgi-bin&#x2F;emotion_cgi_publish_v6?g_tk&#x3D;91245527&amp;qzonetoken&#x3D;010dee36790ae077dbba7521e3e0838b6d9ef25271a9260c8040cd2c2e976f58f614e3ab913c683dfb5c90</span><br></pre></td></tr></table></figure>
+
+
+<p>前面一部分是固定的（除非人为的话，后面有两个参数g_tk和qzonetoken，这是两个为了加密而设置的参数，通过js来获得，qzonetoken的函数源码没有找到，查询网络上的也是一些过时的（算法早就改变了，于是我从主页的源码中扣下来，在最底下，用正则来截取</p>
+<p><img src="/images/crawler2.png" alt=""></p>
+<p>g_tk无法在源码中找到，于是刷新主页，查到在一个<code>interface_mini.js?max_age=60628</code>的js文件里有定义</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">QZONE.FrontPage.getACSRFToken = <span class="function"><span class="keyword">function</span>(<span class="params">url</span>) </span>&#123;</span><br><span class="line">  url = QZFL.util.URI(url);</span><br><span class="line">  <span class="keyword">var</span> skey;</span><br><span class="line">  <span class="keyword">if</span> (url) &#123;</span><br><span class="line">    <span class="keyword">if</span> (url.host &amp;&amp; url.host.indexOf(<span class="string">"qzone.qq.com"</span>) &gt; <span class="number">0</span>) &#123;</span><br><span class="line">      skey = QZFL.cookie.get(<span class="string">"p_skey"</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="keyword">if</span> (url.host &amp;&amp; url.host.indexOf(<span class="string">"qq.com"</span>) &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        skey = QZFL.cookie.get(<span class="string">"skey"</span>);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (!skey) &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">      skey = parent.QZFL.cookie.get(<span class="string">"p_skey"</span>) || <span class="string">""</span>;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (err) &#123;</span><br><span class="line">      skey = QZFL.cookie.get(<span class="string">"p_skey"</span>) || <span class="string">""</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (!skey) &#123;</span><br><span class="line">    skey = QZFL.cookie.get(<span class="string">"skey"</span>) || QZFL.cookie.get(<span class="string">"rv2"</span>);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">var</span> hash = <span class="number">5381</span>;</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>, len = skey.length;i &lt; len;++i) &#123;</span><br><span class="line">    hash += (hash &lt;&lt; <span class="number">5</span>) + skey.charAt(i).charCodeAt();</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> hash &amp; <span class="number">2147483647</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>简单分析一下，用python来重写了g_tk的计算函数（这种操作会因为腾×更新算法而失效，而腾×的更新恰好是比较快的2333</p>
+<h3 id="urllib发送post请求"><a href="#urllib发送post请求" class="headerlink" title="urllib发送post请求"></a>urllib发送post请求</h3><p>没啥好说的，构造post请求头，主体，发送请求</p>
+<p>源码地址：<a href="https://github.com/void0red/code/blob/master/qzone.py" target="_blank" rel="noopener">https://github.com/void0red/code/blob/master/qzone.py</a></p>
+<h2 id="0x03后记"><a href="#0x03后记" class="headerlink" title="0x03后记"></a>0x03后记</h2><p><del>最滑稽的是，这个爬虫并没有实现，运行结果是Bad Request，233333</del></p>
+<p>已经解决，问题在于没有计算请求头中Content-Length的值（笑</p>
+<p>总的来说，程序可用性不高：</p>
+<ol>
+<li>登录是用selenium实现的，加载会占用大量内存与cpu，不适宜在小型设备（例如树莓派）上运行</li>
+<li>两个加密函数有时效性，qzonetoken还好，g_tk的计算就显得有些鸡肋，一旦腾×更改其中的某段代码中的某个参数值，该爬虫就得重新编写（事实上他也是这么做的，可以考虑用正则把js扣出来，放在本地运行，这样程序大概能健壮一些</li>
+<li>程序容错率不高，一旦有环节出错，整个过程无法实现</li>
+</ol>
+<p><del>可喜的是，终于成功爬了qzone，2333</del></p>
+<blockquote>
+<p>void0red 2017.10.13</p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/others/" rel="tag"># others</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2017/10/07/struct/" rel="prev" title="About learning c struct">
+      <i class="fa fa-chevron-left"></i> About learning c struct
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2017/10/21/try_assembly_0/" rel="next" title="try_assembly_0">
+      try_assembly_0 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#0x00准备"><span class="nav-number">1.</span> <span class="nav-text">0x00准备</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x01实现"><span class="nav-number">2.</span> <span class="nav-text">0x01实现</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#selenium模拟登录"><span class="nav-number">2.1.</span> <span class="nav-text">selenium模拟登录</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#分析说说发送过程"><span class="nav-number">2.2.</span> <span class="nav-text">分析说说发送过程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#urllib发送post请求"><span class="nav-number">2.3.</span> <span class="nav-text">urllib发送post请求</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x03后记"><span class="nav-number">3.</span> <span class="nav-text">0x03后记</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="void0red"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">void0red</p>
+  <div class="site-description" itemprop="description">stupid</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">6</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/void0red" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;void0red" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:void0red@gmail.com" title="E-Mail → mailto:void0red@gmail.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">void0red</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">Theme – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
