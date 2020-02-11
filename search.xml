@@ -2,7 +2,7 @@
 <search>
   <entry>
     <title>mos-进程管理</title>
-    <url>/2018/12/03/mos/</url>
+    <url>/blog/2018/12/03/mos/</url>
     <content><![CDATA[<h2 id="进程"><a href="#进程" class="headerlink" title="进程"></a>进程</h2><h3 id="进程的状态"><a href="#进程的状态" class="headerlink" title="进程的状态"></a>进程的状态</h3><ol>
 <li>运行态（占用CPU）</li>
 <li>就绪态（等待调度程序调度）</li>
@@ -156,7 +156,7 @@
   </entry>
   <entry>
     <title>heap unlink</title>
-    <url>/2018/08/06/unlink/</url>
+    <url>/blog/2018/08/06/unlink/</url>
     <content><![CDATA[<p><a href="https://github.com/void0red/code/blob/master/task/2018_07_30/first" target="_blank" rel="noopener">bin</a>地址</p>
 <h2 id="0x00问题所在"><a href="#0x00问题所在" class="headerlink" title="0x00问题所在"></a>0x00问题所在</h2><ol>
 <li>free后的堆指针没用置空</li>
@@ -217,7 +217,7 @@
   </entry>
   <entry>
     <title>writeUp for input2</title>
-    <url>/2018/03/17/input2/</url>
+    <url>/blog/2018/03/17/input2/</url>
     <content><![CDATA[<blockquote>
 <p><a href="http://pwnable.kr" target="_blank" rel="noopener">pwnable</a></p>
 <p><code>ssh input2@pwnable.kr -p 2222</code> (password: <code>guest</code>)</p>
@@ -266,7 +266,7 @@
   </entry>
   <entry>
     <title>remote control transmission</title>
-    <url>/2018/03/17/remote_control_transmission/</url>
+    <url>/blog/2018/03/17/remote_control_transmission/</url>
     <content><![CDATA[<blockquote>
 <p>设备：<code>树莓派3B</code> 系统：<code>LEDE 4.4.92</code></p>
 </blockquote>
@@ -302,7 +302,7 @@
   </entry>
   <entry>
     <title>linux权限(rws与rwt)</title>
-    <url>/2017/12/15/linux%E6%9D%83%E9%99%90/</url>
+    <url>/blog/2017/12/15/linux%E6%9D%83%E9%99%90/</url>
     <content><![CDATA[<h2 id="0x00概念"><a href="#0x00概念" class="headerlink" title="0x00概念"></a>0x00概念</h2><p>一个文件都有一个所有者, 表示该文件是谁创建的. 同时, 该文件还有一个组编号, 表示该文件所属的组, 一般为文件所有者所属的组. 如果是一个可执行文件, 那么在执行时, 一般该文件只拥有调用该文件的用户具有的权限. 而<code>setuid</code>, <code>setgid</code> 可以来改变这种设置.</p>
 <p><code>setuid</code>:该标志是让普通用户可以以root用户的角色运行只有root帐号才能运行的程序或命令。通过设置<code>setuid</code>权限位（也就是<code>r-s--x--x</code>中的s),使可执行程序暂时获得root权限,及程序涉及到的root操作能够进行.</p>
 <a id="more"></a>
@@ -332,7 +332,7 @@
   </entry>
   <entry>
     <title>leak_got_addr</title>
-    <url>/2017/11/15/leak_gotaddr/</url>
+    <url>/blog/2017/11/15/leak_gotaddr/</url>
     <content><![CDATA[<blockquote>
 <p>this is a test, not true</p>
 </blockquote>
@@ -380,7 +380,7 @@
   </entry>
   <entry>
     <title>ret2libc</title>
-    <url>/2017/11/10/ret2libc/</url>
+    <url>/blog/2017/11/10/ret2libc/</url>
     <content><![CDATA[<blockquote>
 <p>this is a test not true</p>
 </blockquote>
@@ -427,7 +427,7 @@
   </entry>
   <entry>
     <title>overflow</title>
-    <url>/2017/11/09/overflow/</url>
+    <url>/blog/2017/11/09/overflow/</url>
     <content><![CDATA[<blockquote>
 <p>this is a test, not true</p>
 </blockquote>
@@ -526,7 +526,7 @@
   </entry>
   <entry>
     <title>a letter</title>
-    <url>/2017/11/05/a_letter/</url>
+    <url>/blog/2017/11/05/a_letter/</url>
     <content><![CDATA[<blockquote>
 <p>安妮宝贝《一封信》</p>
 </blockquote>
@@ -581,7 +581,7 @@
   </entry>
   <entry>
     <title>About learning linked_list</title>
-    <url>/2017/10/24/linked_list/</url>
+    <url>/blog/2017/10/24/linked_list/</url>
     <content><![CDATA[<blockquote>
 <p>some Pointer and Struct practicing</p>
 </blockquote>
@@ -595,7 +595,7 @@
   </entry>
   <entry>
     <title>try_assembly_0</title>
-    <url>/2017/10/21/try_assembly_0/</url>
+    <url>/blog/2017/10/21/try_assembly_0/</url>
     <content><![CDATA[<blockquote>
 <p>if-else, while/for, switch-case</p>
 <p>编译器：<code>gcc (Ubuntu 5.4.0-6ubuntu1~16.04.4) 5.4.0 20160609</code></p>
@@ -665,7 +665,7 @@
   </entry>
   <entry>
     <title>Crawler</title>
-    <url>/2017/10/13/Crawler/</url>
+    <url>/blog/2017/10/13/Crawler/</url>
     <content><![CDATA[<blockquote>
 <p>一次爬虫的记录与分享</p>
 </blockquote>
@@ -707,7 +707,7 @@
   </entry>
   <entry>
     <title>About learning c struct</title>
-    <url>/2017/10/07/struct/</url>
+    <url>/blog/2017/10/07/struct/</url>
     <content><![CDATA[<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">first</span>&#123;</span></span><br><span class="line">	<span class="keyword">char</span> name[<span class="number">10</span>];</span><br><span class="line">&#125;;</span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">second</span>&#123;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">first</span> <span class="title">a</span>;</span></span><br><span class="line">	<span class="keyword">int</span> x;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">third</span>&#123;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">second</span> <span class="title">b</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">first</span> <span class="title">c</span>;</span></span><br><span class="line">	<span class="keyword">char</span> y[<span class="number">5</span>];</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">third</span> <span class="title">d</span> = &#123;</span>.b = &#123;.x = <span class="number">233</span>,.a = &#123;<span class="string">"huaji"</span>&#125;&#125;,</span><br><span class="line">	.c = &#123;<span class="string">"huaihuai"</span>&#125;,<span class="string">"2333"</span>&#125;;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">third</span> * <span class="title">p</span>;</span></span><br><span class="line">	p = &amp;d;</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%s\n"</span>,p -&gt; b.a.name);</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%d\n"</span>,p -&gt; b.x);</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%s\n"</span>,p -&gt; y);</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%s\n"</span>,d.b.a.name);</span><br><span class="line"></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">second</span> * <span class="title">z</span>;</span></span><br><span class="line">	z = &amp;d.b;</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%s\n"</span>,z -&gt; a.name);</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%d\n"</span>,z -&gt; x);</span><br><span class="line"></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">first</span> * <span class="title">m</span>;</span></span><br><span class="line">	m = &amp;d.b.a;</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"%s\n"</span>,m -&gt; name);</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 ]]></content>
       <tags>
@@ -716,7 +716,7 @@
   </entry>
   <entry>
     <title>About learning MYSQL</title>
-    <url>/2017/09/24/mysql/</url>
+    <url>/blog/2017/09/24/mysql/</url>
     <content><![CDATA[<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line">id&#x3D;? order by n</span><br><span class="line">union select null,null,~,n</span><br><span class="line"></span><br><span class="line">#find_schema:</span><br><span class="line">union select 1,2,~,group_concat(schema_name),~,n from information_schema.schemata</span><br><span class="line">#find_tables:</span><br><span class="line">union select 1,2,~,group_concat(table_name),~,n from information_schema.tables where table_schema&#x3D;&quot;~~&quot;</span><br><span class="line">#find_columns:</span><br><span class="line">union select 1,2,~,group_concat(column_name),~,n from information_schema.columns where table_schema&#x3D;&quot;~~&quot; and table_name&#x3D;&quot;~~&quot;</span><br><span class="line"></span><br><span class="line">#get data</span><br><span class="line">union select 1,2,~,group_concat(column),~,n from schema.table</span><br></pre></td></tr></table></figure>]]></content>
       <tags>
         <tag>others</tag>
